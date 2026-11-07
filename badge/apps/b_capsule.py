@@ -22,12 +22,13 @@ class CapsuleApp(BaseApp):
         super().__init__("Capsule")
         self.sleep_ms = 100
         self.slides = sorted(
-            f for f in os.listdir(SLIDE_DIR) if f.startswith("s") and f.endswith(".png")
+            f for f in os.listdir(SLIDE_DIR) if f.startswith("s") and f.endswith(".z") and f != "sent.z"
         )
         self.index = 0
         self.step = 0
         self.next_at = 0
         self.jump = None
+        self.paused = False
         self.request = False
         CapsuleApp._instance = self
 
@@ -37,7 +38,7 @@ class CapsuleApp(BaseApp):
 
     def _show(self):
         self.index %= len(self.slides)
-        hb_state.show_png(SLIDE_DIR + "/" + self.slides[self.index])
+        hb_state.show(SLIDE_DIR + "/" + self.slides[self.index])
         hb_state.status["slide"] = self.index
         hb_state.status["slides"] = len(self.slides)
         hb_state.changed()
@@ -70,6 +71,6 @@ class CapsuleApp(BaseApp):
             self._show()
         elif self.next_at == 0:
             self._show()
-        elif time.time() >= self.next_at:
+        elif not self.paused and time.time() >= self.next_at:
             self.index += 1
             self._show()

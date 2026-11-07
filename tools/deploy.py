@@ -1,6 +1,6 @@
 """Copies the hack.build apps to the badge and hooks them into its stock main.py.
 
-Needs badge/secret.local.json with ssid, password and key, and backup-stock/main.py.
+Needs badge/secret.local.json with networks and key, and backup-stock/main.py.
 Run: uv run --no-project --with mpremote python tools/deploy.py /dev/cu.usbmodem101
 """
 import json
@@ -37,9 +37,10 @@ def main():
         tmp = pathlib.Path(tmp)
         (tmp / "main.py").write_text(patched)
         (tmp / "config.json").write_text(json.dumps(secret))
-        mp("exec", "import os\ntry:\n    os.mkdir('/data/hb')\nexcept OSError:\n    pass")
+        mp("exec", "import os\ntry:\n    os.mkdir('/data/hb')\nexcept OSError:\n    pass\n"
+           "for f in os.listdir('/data/hb'):\n    if f.endswith('.png') or f == 'state.json':\n        os.remove('/data/hb/' + f)")
         args = []
-        for f in sorted((ROOT / "docs" / "slides").glob("*.png")):
+        for f in sorted((ROOT / "badge" / "screens").glob("*.z")):
             args += ["fs", "cp", str(f), f":/data/hb/{f.name}", "+"]
         for sub in ("apps", "lib"):
             for f in sorted((ROOT / "badge" / sub).glob("*.py")):

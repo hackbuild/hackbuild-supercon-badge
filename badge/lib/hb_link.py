@@ -56,8 +56,12 @@ class Link:
         self.last_rx = self.started
         self.sta = network.WLAN(network.STA_IF)
 
-    def goto(self, app):
+    def goto(self, app, keep_slide=False):
         """Switches app the way the menu does, including when the menu is open."""
+        if keep_slide and app == "capsule":
+            from apps.b_capsule import CapsuleApp
+            if CapsuleApp._instance:
+                CapsuleApp._instance.jump = CapsuleApp._instance.index
         names = {"logo": "hack.build", "capsule": "Capsule", "image": "Sent"}
         sw = self.switcher
         for i, a in enumerate(sw.apps):
@@ -116,9 +120,21 @@ class Link:
             if CapsuleApp._instance:
                 CapsuleApp._instance.jump = int(val)
                 self.goto("capsule")
+        elif cmd == "pause":
+            from apps.b_capsule import CapsuleApp
+            if CapsuleApp._instance:
+                CapsuleApp._instance.paused = bool(val)
+                hb_state.status["paused"] = bool(val)
         elif cmd == "hold":
-            hb_state.config["hold"] = max(5, min(3600, int(val)))
+            hb_state.config["hold"] = max(2, min(3600, int(val)))
             hb_state.save()
+        elif cmd == "quality":
+            hb_state.config["quality"] = "color" if val == "color" else "fast"
+            hb_state.save()
+        elif cmd == "redraw":
+            # Runs the current screen again through the panel's own waveform, in full color.
+            hb_state.want_color_once()
+            self.goto(hb_state.status["app"], keep_slide=True)
         elif cmd == "led":
             leds.clear_sequence()
             leds.fill(tuple(max(0, min(32, int(c))) for c in val))
@@ -129,6 +145,7 @@ class Link:
                 return
             gc.collect()
             self.transfer = {"id": val["id"], "size": size, "sha": val["sha"], "next": 0,
+                             "color": bool(val.get("color")),
                              "got": 0, "buf": bytearray(size)}
             self.send("/ack", val["id"] + ":-1")
 
@@ -162,12 +179,14 @@ class Link:
         if _hex(hashlib.sha256(t["buf"]).digest()) != t["sha"]:
             self.fail("image failed its checksum")
             return
+        color = t["color"]
         with open(hb_state.SENT_PATH, "wb") as f:
             f.write(t["buf"])
         del t
         gc.collect()
         hb_state.status["err"] = ""
-        hb_state.config["has_image"] = True
+        if color:
+            hb_state.want_color_once()
         self.goto("image")
 
     def send(self, suffix, text):
@@ -183,30 +202,50 @@ class Link:
         return json.dumps({
             "n": self.nonce, "app": s["app"], "slide": s["slide"], "slides": s["slides"],
             "hold": hb_state.config["hold"], "busy": not hb_state.panel_idle(),
+            "quality": hb_state.config["quality"], "color": s["color"], "paused": s["paused"],
+            "fast_ms": s["fast_ms"], "color_ms": s["color_ms"], "load_ms": s["load_ms"], "wifi": s["wifi"],
             "ip": s["ip"], "rssi": s["rssi"], "err": s["err"],
             "vin": round(reg_in_v_sns.read_uv() * 2 / 1000000, 2),
             "up": time.time() - self.started, "mem": gc.mem_free(),
         })
 
+    def known_networks(self):
+        """Known networks in range strongest first, then the unseen ones: a phone hotspot often answers
+        a join by name while it stays out of scans."""
+        known = hb_state.config["networks"]
+        try:
+            seen = {}
+            for ap in self.sta.scan():
+                name = ap[0].decode()
+                seen[name] = max(seen.get(name, -999), ap[3])
+            print("hb_link: networks in range", list(seen))
+            hits = [n for n in known if n["ssid"] in seen]
+            hits.sort(key=lambda n: -seen[n["ssid"]])
+            return hits + [n for n in known if n["ssid"] not in seen]
+        except (OSError, UnicodeError) as ex:
+            print("hb_link: scan failed", ex)
+            return known
+
     async def wifi(self):
-        cfg = hb_state.config
         if self.sta.isconnected():
             return True
-        hb_state.status["err"] = "joining wifi"
+        hb_state.status["wifi"] = ""
         self.sta.active(True)
         try:
             self.sta.config(pm=self.sta.PM_NONE)
         except (OSError, ValueError, AttributeError):
             pass
-        self.sta.connect(cfg["ssid"], cfg["password"])
-        for _ in range(40):
-            if self.sta.isconnected():
-                hb_state.status["err"] = ""
-                print("hb_link: wifi", self.sta.ifconfig()[0])
-                return True
-            await aio.sleep_ms(500)
-        print("hb_link: wifi failed", self.sta.status())
-        self.sta.disconnect()
+        for net in self.known_networks():
+            print("hb_link: joining", net["ssid"])
+            self.sta.connect(net["ssid"], net["password"])
+            for _ in range(30):
+                if self.sta.isconnected():
+                    hb_state.status["wifi"] = net["ssid"]
+                    print("hb_link: wifi", net["ssid"], self.sta.ifconfig()[0])
+                    return True
+                await aio.sleep_ms(500)
+            print("hb_link: could not join", net["ssid"], self.sta.status())
+            self.sta.disconnect()
         return False
 
     async def writer(self):
@@ -216,6 +255,9 @@ class Link:
         while True:
             now = time.time()
             busy = not hb_state.panel_idle()
+            if was_busy and not busy and hb_state.status["color"] and hb_state.status.get("color_started"):
+                hb_state.status["color_ms"] = time.ticks_diff(time.ticks_ms(), hb_state.status["color_started"])
+                hb_state.status["color_started"] = 0
             if hb_state.take_dirty() or busy != was_busy or now - last_state >= STATE_EVERY_S:
                 was_busy = busy
                 last_state = now
@@ -251,7 +293,7 @@ class Link:
             self.client.close()
 
     async def run(self):
-        if not hb_state.config["ssid"] or not self.key:
+        if not hb_state.config["networks"] or not self.key:
             print("hb_link: no wifi or key in config, staying offline")
             return
         wait = 2
@@ -272,6 +314,8 @@ class Link:
 def start(switcher):
     """Opens the main app and starts the remote link. Called once from main.py."""
     link = Link(switcher)
+    # The film state is unknown after a reset, so the first screen gets the full waveform.
+    hb_state.want_color_once()
     link.goto("logo")
     aio.create_task(link.run())
     return link

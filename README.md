@@ -28,8 +28,10 @@ mpremote fs cp :main.py backup-stock/main.py
 Then create `badge/secret.local.json`. It's gitignored and only ever goes to the badge:
 
 ```json
-{"ssid": "your wifi", "password": "your password", "key": "a long random string"}
+{"networks": [{"ssid": "your wifi", "password": "your password"}], "key": "a long random string"}
 ```
+
+List as many networks as you like. The badge tries the ones it can see, strongest first, then the rest by name, since a phone hotspot often stays out of scans. It only speaks 2.4 GHz, so an iPhone hotspot needs **Maximize Compatibility** on.
 
 Deploy and reset:
 
@@ -59,11 +61,14 @@ Measured on one badge:
 
 | what | measured |
 |---|---|
-| full color refresh | 38 s (5.3 s send, 32.6 s panel) |
+| fast refresh, black and white | 4.3 s (3.5 s of it is the panel's waveform) |
+| first fast refresh after boot | 6.7 s, reads the panel's calibration once |
+| full color refresh | 32.6 s, was 38 s before the hardware SPI send |
+| loading a screen file | about 110 ms |
 | 6 KB image over the relay | 1.8 s |
 | free heap with WiFi and relay up | about 6.5 MB |
 
-The slides change slowly because of that refresh. The default hold is 15 s, set from the controller.
+Fast mode uses the short waveform Hackaday ships in `data/rendered_luts.py`. It has no red, so red draws as black, and every 30th screen gets a full color refresh to clean the film. The default hold is 8 s, set from the controller.
 
 ## Rebuild the art
 

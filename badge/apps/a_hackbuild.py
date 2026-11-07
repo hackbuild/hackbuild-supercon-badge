@@ -6,7 +6,7 @@ from lib import hb_state
 class HackBuildApp(BaseApp):
     def __init__(self, name=None):
         super().__init__("hack.build")
-        self.sleep_ms = 200
+        self.sleep_ms = 100
         self.pending = False
         self.request = False
 
@@ -17,4 +17,4 @@ class HackBuildApp(BaseApp):
             hb_state.remember("logo")
         if self.pending and hb_state.panel_idle():
             self.pending = False
-            hb_state.show_png("/data/hb/logo.png")
+            hb_state.show("/data/hb/logo.z")

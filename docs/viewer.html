@@ -31,7 +31,7 @@ h2{font:20px var(--inst);text-transform:uppercase;letter-spacing:.06em;margin:0 
 #leds i{width:12px;height:12px;background:#222;display:block}
 #screen{position:relative;line-height:0;background:var(--film)}
 #screen img{width:100%;height:auto;display:block;image-rendering:auto}
-body.film #screen img{mix-blend-mode:multiply}
+#screen.bw img{filter:grayscale(1) contrast(1000%)}
 #flash{position:absolute;inset:0;background:var(--void);opacity:0}
 #btns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2);padding-top:var(--s3)}
 #btns button{background:#222;color:var(--paper);border-color:#555;box-shadow:none;padding:var(--s2) var(--s1)}
@@ -72,13 +72,13 @@ body.film #screen img{mix-blend-mode:multiply}
       <div class="row">
         <label for="timing">refresh</label>
         <select id="timing">
-          <option value="1.2">short, 1.2 s</option>
-          <option value="38">real, 38 s</option>
+          <option value="4">fast, about 4 s</option>
+          <option value="34">full color, about 34 s</option>
           <option value="0">none</option>
         </select>
       </div>
       <button id="play" aria-pressed="true">pause slides</button>
-      <p class="hint">real timing is measured on this badge: 5.3 s to send, 32.6 s to refresh. the badge default hold is 15 s.</p>
+      <p class="hint">fast mode draws red as black, as the badge does. the badge default hold is 8 s.</p>
     </section>
     <section class="panel">
       <h2>on the badge</h2>
@@ -104,6 +104,10 @@ let shown = SCREENS[0], menu = false, sel = 0, active = 0, timer = null, playing
 
 for (let i = 0; i < 8; i++) $('leds').append(document.createElement('i'));
 function ledBar(fn) { [...$('leds').children].forEach((l, i) => { l.style.background = fn(i) || '#222'; }); }
+
+function mode() { $('screen').classList.toggle('bw', $('timing').value === '4'); }
+$('timing').addEventListener('change', mode);
+mode();
 
 function help() {
   $('help').textContent = menu

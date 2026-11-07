@@ -12,11 +12,13 @@ import pathlib
 import subprocess
 import tempfile
 import time
+import zlib
 
 from PIL import Image, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "slides"
+BADGE_OUT = ROOT / "badge" / "screens"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 W, H = 960, 672
 INK, RED, PAPER = "#000000", "#ff0000", "#ffffff"
@@ -306,6 +308,19 @@ def to_panel(path):
     return out
 
 
+def to_planes(img):
+    """The framebuffer format compressed: black plane then red plane, 120 bytes a row, top bit leftmost."""
+    px = img.load()
+    black, red = bytearray(120 * H), bytearray(120 * H)
+    for y in range(H):
+        for x in range(W):
+            if px[x, y] == 1:
+                black[y * 120 + (x >> 3)] |= 0x80 >> (x & 7)
+            elif px[x, y] == 2:
+                red[y * 120 + (x >> 3)] |= 0x80 >> (x & 7)
+    return zlib.compress(bytes(black + red), 9)
+
+
 def shoot(page, shot, tmp):
     """Chrome writes the screenshot but on this Mac never exits, so it is stopped once the file lands."""
     proc = subprocess.Popen([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
@@ -328,6 +343,7 @@ def shoot(page, shot, tmp):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    BADGE_OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         for name, body in SCREENS.items():
@@ -338,7 +354,9 @@ def main():
                 f'svg{{display:block}}</style>'
                 f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">{body}</svg>')
             shoot(page, shot, tmp)
-            to_panel(shot).save(OUT / f"{name}.png", optimize=True)
+            panel = to_panel(shot)
+            panel.save(OUT / f"{name}.png", optimize=True)
+            (BADGE_OUT / f"{name}.z").write_bytes(to_planes(panel))
             print(name, (OUT / f"{name}.png").stat().st_size, "bytes")
 
 

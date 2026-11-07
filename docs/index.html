@@ -8,270 +8,346 @@
 <script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
 <style>
 :root{
-  --pink:#FE0386;--paper:#f5f0e6;--card:#fffdf7;--ink:#1a1a1a;--void:#0a0a0a;--ink3:#6b6459;--edge:#d8d0bf;
-  --good:#3ddc84;--bad:#ff6b5e;--wait:#ffb020;
+  --pink:#FE0386;--paper:#f5f0e6;--raised:#fffdf7;--sunk:#efe9db;--ink:#1a1a1a;--ink2:#444;--ink3:#6b6459;--void:#0a0a0a;
+  --err:#c3251f;--lamp:#ffb020;--lamp-off:#2a2a2a;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--tap:44px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 var(--mono)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--mono)}
 button,input,select,textarea{font:inherit;color:inherit;border-radius:0}
-button{cursor:pointer}
-input,select,textarea{background:var(--card);border:2px solid var(--ink);padding:var(--s2);width:100%;min-width:0}
+button{cursor:pointer;min-height:var(--tap)}
+button:disabled{cursor:not-allowed}
 a{color:inherit}
 [hidden]{display:none !important}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+input,textarea,select{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);width:100%;min-width:0;min-height:var(--tap)}
+label{display:block;font-weight:600;font-size:13px;margin-bottom:var(--s1)}
+.prose{font:15px/1.4 var(--type);color:var(--ink2);margin:var(--s2) 0 0;max-width:62ch}
 
-header{background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s2) var(--s4)}
-h1{font:24px var(--disp);margin:0}
-header a{font-size:12px;white-space:nowrap}
+.btn{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s4);font-weight:600}
+.btn:hover:not(:disabled){background:var(--sunk)}
+.btn:active:not(:disabled){transform:translate(2px,2px)}
+.btn:disabled{color:var(--ink3);border-color:var(--ink3);background:var(--sunk)}
+.go{background:var(--ink);color:var(--raised);box-shadow:3px 3px 0 var(--ink3);width:100%;padding:var(--s3) var(--s4);font-size:16px}
+.go:hover:not(:disabled){background:var(--ink);box-shadow:3px 3px 0 var(--ink)}
+.go:disabled{box-shadow:none;background:var(--sunk)}
+.wide{width:100%}
 
-#bar{position:sticky;top:0;z-index:5;background:var(--void);color:var(--paper);padding:var(--s3) var(--s4);display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--s3);align-items:center}
-#dot{width:14px;height:14px;background:var(--edge)}
-#bar[data-tone=good] #dot{background:var(--good)}
-#bar[data-tone=bad] #dot{background:var(--bad)}
-#bar[data-tone=wait] #dot{background:var(--wait)}
-#say{font:24px/1.1 var(--inst);overflow-wrap:anywhere}
-#meter{grid-column:1/-1;height:6px;background:#333;display:none}
-#meter i{display:block;height:100%;width:0;background:var(--wait)}
-#bar[data-busy="1"] #meter{display:block}
-#disconnect{background:none;border:1px solid var(--edge);color:var(--paper);padding:var(--s1) var(--s2);font-size:12px}
+/* signing in */
+#gate{max-width:480px;margin:0 auto;padding:var(--s6) var(--s4)}
+#gate h1{font:40px/1.05 var(--disp);margin:0 0 var(--s2)}
+.keybox{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);margin:var(--s4) 0 var(--s3)}
+#gateMsg{min-height:44px;margin-top:var(--s3);color:var(--err);font-weight:600}
 
-main{max-width:980px;margin:0 auto;padding:var(--s4);display:grid;gap:var(--s4);grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
-.wide{grid-column:1/-1}
-.panel{background:var(--card);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s4);min-width:0}
-h2{font:22px var(--inst);text-transform:uppercase;letter-spacing:.05em;margin:0 0 var(--s3)}
-.hint{font:14px var(--type);color:var(--ink3);margin:var(--s2) 0 0}
+/* the page */
+#app{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr);gap:var(--s5);max-width:1200px;margin:0 auto;padding:var(--s4);align-items:start}
+#left{position:sticky;top:var(--s4);min-width:0}
+#right{min-width:0}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s3)}
+.top h1{font:26px var(--disp);margin:0}
+.top a{font-size:13px;min-height:var(--tap);display:inline-flex;align-items:center}
 
-#setup{max-width:560px;margin:0 auto}
-#setup h2{font:30px var(--disp);text-transform:none;letter-spacing:0}
-#setup button{width:100%;margin-top:var(--s3)}
-.primary{background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:var(--s3) var(--s4);font-weight:600;box-shadow:3px 3px 0 var(--ink3);width:100%}
-.primary:hover:not(:disabled){box-shadow:3px 3px 0 var(--pink)}
-.primary:disabled{opacity:.4;cursor:default;box-shadow:none}
-.plain{background:var(--card);border:2px solid var(--ink);padding:var(--s2) var(--s3)}
-.plain:disabled{opacity:.4;cursor:default}
+/* the badge is the page's one big thing */
+#badge{background:var(--void);padding:var(--s3);box-shadow:5px 5px 0 var(--pink)}
+#lamps{display:grid;grid-template-columns:repeat(8,1fr);gap:var(--s2);padding:0 8% var(--s3)}
+#lamps i{height:10px;background:var(--lamp-off);display:block}
+#lamps i.on{background:var(--lamp)}
+#panel{position:relative;background:#fff;line-height:0}
+#panel img,#panel canvas{width:100%;height:auto;display:block}
+#panel.bw img{filter:grayscale(1) contrast(1000%)}
+#panel .draft{position:absolute;right:0;top:0;background:var(--ink);color:var(--raised);font:18px/1 var(--inst);padding:var(--s1) var(--s2)}
+#say{color:var(--raised);font:24px/1.15 var(--inst);padding:var(--s3) 0 0;min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
+#say.bad{color:#ff8a80}
+#retry{background:var(--raised);color:var(--ink);border:0;font:600 13px var(--mono);padding:var(--s1) var(--s3);flex:none}
 
-#now{background:var(--void);padding:var(--s2);position:relative;line-height:0}
-#now img,#now canvas{width:100%;height:auto;display:block;background:#fff}
-#nowTag{display:block;color:var(--paper);font:18px/1.2 var(--inst);padding:var(--s2) var(--s1) var(--s1)}
+/* what do you want to do */
+#tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:2px solid var(--ink);margin-bottom:var(--s4)}
+#tabs button{background:var(--raised);border:0;border-right:2px solid var(--ink);padding:var(--s3) var(--s1);font-weight:600;min-width:0}
+#tabs button:last-child{border-right:0}
+#tabs button[aria-selected=true]{background:var(--pink);color:var(--ink)}
+.pane{display:grid;gap:var(--s3)}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
 
-.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
-.tile{padding:0;background:var(--card);border:2px solid var(--ink);line-height:1.2;text-align:left;display:flex;flex-direction:column;min-width:0}
-.tile img{width:100%;height:auto;display:block;background:#fff}
-.tile span{display:block;padding:var(--s1) var(--s2);font-size:11px;font-weight:600;border-top:2px solid var(--ink)}
-.tile:hover:not(:disabled){box-shadow:3px 3px 0 var(--ink)}
-.tile:disabled{cursor:default}
-.tile[data-on="1"] span{background:var(--pink);color:var(--card)}
-.tile[data-pending="1"] span{background:var(--wait);color:var(--ink)}
-.blank{aspect-ratio:960/672;background:var(--void);color:var(--paper);display:grid;place-items:center;font:18px var(--inst)}
-.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2);margin-top:var(--s3)}
+#strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2)}
+#strip button{padding:0;background:#fff;border:2px solid var(--ink);line-height:0;position:relative;min-width:0}
+#strip img{width:100%;height:auto;display:block}
+#strip.bw img{filter:grayscale(1) contrast(1000%)}
+#strip b{position:absolute;left:0;top:0;background:var(--ink);color:var(--raised);font:16px/1 var(--inst);padding:2px var(--s1)}
+#strip button[aria-current=true]{outline:4px solid var(--ink);outline-offset:-1px}
+#strip button[aria-current=true] b{background:var(--pink);color:var(--ink)}
+#strip button:disabled{cursor:not-allowed;opacity:.55}
+.stepper{display:grid;grid-template-columns:var(--tap) minmax(0,1fr) var(--tap);align-items:center;text-align:center;border:2px solid var(--ink);background:var(--raised)}
+.stepper button{background:none;border:0;font:600 20px var(--mono)}
+.stepper button:hover{background:var(--sunk)}
+.stepper output{font:24px/1 var(--inst)}
 
-.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2);margin-bottom:var(--s3)}
-.tabs button{background:var(--card);border:2px solid var(--ink);padding:var(--s2)}
-.tabs button[aria-pressed=true]{background:var(--ink);color:var(--card)}
-#stage{background:var(--void);padding:var(--s2);line-height:0;margin:var(--s3) 0}
-#cv{width:100%;height:auto;background:#fff;display:block}
-.field{display:grid;gap:var(--s1);margin-bottom:var(--s2)}
-.field label{font-size:12px;font-weight:600}
-#msg{font:600 18px var(--mono)}
-.swatches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s1)}
-.swatches button{border:2px solid var(--ink);padding:var(--s2) 0;font:18px var(--disp);min-width:0}
-.swatches button[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:1px}
-progress{width:100%;height:10px;accent-color:var(--ink);display:block;margin-top:var(--s2)}
+.sw{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
+.sw button{border:2px solid var(--ink);font:20px var(--disp)}
+.sw button[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:2px}
+#msg{font-weight:600;font-size:18px;resize:vertical}
+.choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border:2px solid var(--ink);margin:0;padding:0}
+.groupLabel{font-weight:600;font-size:13px;margin-bottom:var(--s1)}
+.choice label{margin:0;font-weight:400;font-size:13px;padding:var(--s2) var(--s3);background:var(--raised);cursor:pointer;min-height:var(--tap);display:block;line-height:1.25}
+.choice label b{display:block;font-size:15px;font-weight:600}
+.choice input{position:absolute;opacity:0;width:0;height:0;min-height:0}
+.choice input:checked + label{background:var(--ink);color:var(--raised)}
+.choice input:focus-visible + label{outline:3px solid var(--pink);outline-offset:2px}
+#qualityBox{margin-top:var(--s5)}
+progress{width:100%;height:10px;accent-color:var(--ink);display:block}
 
-details{background:var(--card);border:2px solid var(--ink);padding:var(--s3) var(--s4)}
-summary{font:22px var(--inst);text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
-.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:center;margin:var(--s2) 0}
-.facts{display:grid;gap:var(--s1);font-size:12px;margin-top:var(--s3)}
-.facts div{display:flex;justify-content:space-between;gap:var(--s2)}
-.facts b{font:17px/1 var(--inst);overflow-wrap:anywhere;text-align:right}
+details{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s2)}
+summary{cursor:pointer;font-weight:600;min-height:var(--tap);display:flex;align-items:center}
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s1) var(--s3);font-size:13px;margin:var(--s3) 0 0}
+.facts dt{color:var(--ink3)}
+.facts dd{margin:0;overflow-wrap:anywhere;font-weight:600}
+input[type=color]{padding:0;height:var(--tap)}
+input[type=range]{border:0;padding:0;background:none;accent-color:var(--ink)}
 
-@media (max-width:760px){
-  main{grid-template-columns:minmax(0,1fr);padding:var(--s3)}
-  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:820px){
+  #app{grid-template-columns:minmax(0,1fr);padding:var(--s3);gap:var(--s4)}
+  #left{position:static}
+  #say{font-size:22px}
 }
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>badge control</h1>
-  <a href="viewer.html">preview screens</a>
-</header>
 
-<div id="bar" data-tone="" data-busy="0" role="status" aria-live="polite">
-  <div id="dot"></div>
-  <div id="say">not connected.</div>
-  <button id="disconnect" hidden>disconnect</button>
-  <div id="meter"><i id="meterFill"></i></div>
-</div>
-
-<main>
-  <section class="panel wide" id="setup">
-    <h2>connect to your badge</h2>
-    <label for="key">paste your badge key. it stays in this browser and is never sent.</label>
-    <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="hb-...">
-    <button id="connect" class="primary">connect</button>
-    <p class="hint" id="setupHint" hidden></p>
-  </section>
-
-  <section class="panel" id="choose" hidden>
-    <h2>show on the badge</h2>
-    <div class="tiles" id="tiles"></div>
-    <div class="pair">
-      <button id="prev" class="plain" disabled>previous slide</button>
-      <button id="next" class="plain" disabled>next slide</button>
+<main id="gate">
+  <h1>connect your badge</h1>
+  <p class="prose">paste the badge key. it stays in this browser and is never sent anywhere.</p>
+  <form id="gateForm">
+    <div class="keybox">
+      <div>
+        <label for="key">badge key</label>
+        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="hb-...">
+      </div>
+      <button id="reveal" class="btn" type="button" aria-pressed="false" style="align-self:end">show</button>
     </div>
-    <p class="hint">slides play by themselves once one is showing.</p>
+    <button id="connect" class="btn go" type="submit">connect</button>
+  </form>
+  <p id="gateMsg" role="alert"></p>
+  <p class="prose"><a href="viewer.html">preview the screens</a> without a badge.</p>
+</main>
+
+<div id="app" hidden>
+  <section id="left" aria-label="your badge">
+    <div class="top">
+      <h1>badge control</h1>
+      <a href="viewer.html">preview screens</a>
+    </div>
+    <div id="badge">
+      <div id="lamps" aria-hidden="true"></div>
+      <div id="panel"><img id="panelImg" alt=""><canvas id="cv" width="960" height="672" hidden></canvas><span class="draft" id="draft" hidden>not sent yet</span></div>
+      <div id="say" role="status" aria-live="polite"><span id="sayText">looking for the badge.</span><button id="retry" hidden>try again</button></div>
+    </div>
   </section>
 
-  <div style="display:grid;gap:var(--s4);min-width:0" id="side" hidden>
-    <section class="panel">
-      <h2>on the badge now</h2>
-      <div id="now"><img id="nowImg" alt="what the badge shows"><span id="nowTag"></span></div>
-    </section>
-    <details>
-      <summary>settings</summary>
-      <div class="row">
-        <label for="hold">seconds to hold each slide</label>
-        <input id="hold" type="number" min="5" max="3600" step="5" style="width:90px">
-      </div>
-      <div class="row">
-        <label for="led">led color</label>
-        <input id="led" type="color" value="#ff0000" style="width:70px;height:36px;padding:0">
-      </div>
-      <div class="row">
-        <label for="bright">led brightness</label>
-        <input id="bright" type="range" min="1" max="32" value="4" style="width:120px;border:0;padding:0;accent-color:var(--ink)">
-      </div>
+  <section id="right" aria-label="controls">
+    <div id="tabs" role="tablist" aria-label="what to show">
+      <button role="tab" id="tab-logo" aria-controls="pane-logo" aria-selected="true">logo</button>
+      <button role="tab" id="tab-slides" aria-controls="pane-slides" aria-selected="false" tabindex="-1">slides</button>
+      <button role="tab" id="tab-send" aria-controls="pane-send" aria-selected="false" tabindex="-1">message</button>
+    </div>
+
+    <div class="pane" role="tabpanel" id="pane-logo" aria-labelledby="tab-logo">
+      <button id="showLogo" class="btn go">show the logo</button>
+    </div>
+
+    <div class="pane" role="tabpanel" id="pane-slides" aria-labelledby="tab-slides" hidden>
+      <button id="playSlides" class="btn go">play the slides</button>
       <div class="pair">
-        <button id="ledOff" class="plain">leds off</button>
-        <button id="ledSet" class="plain">set leds</button>
+        <button id="prev" class="btn">previous</button>
+        <button id="next" class="btn">next</button>
       </div>
-      <div class="facts">
-        <div>wifi <b id="fWifi">unknown</b></div>
-        <div>power in <b id="fVin">unknown</b></div>
-        <div>awake for <b id="fUp">unknown</b></div>
+      <div id="strip" aria-label="jump to a slide"></div>
+      <div>
+        <label id="holdLabel">seconds on each slide</label>
+        <div class="stepper" role="group" aria-labelledby="holdLabel">
+          <button id="holdDown" aria-label="fewer seconds">-</button>
+          <output id="holdVal">8</output>
+          <button id="holdUp" aria-label="more seconds">+</button>
+        </div>
       </div>
-    </details>
-  </div>
-
-  <section class="panel wide" id="composer" hidden>
-    <h2>send your own</h2>
-    <div class="tabs" id="tabs">
-      <button data-tab="text" aria-pressed="true">big text</button>
-      <button data-tab="image" aria-pressed="false">a picture</button>
     </div>
-    <div id="tabText">
-      <div class="field">
-        <label for="msg">your message. each line gets as big as it can.</label>
+
+    <div class="pane" role="tabpanel" id="pane-send" aria-labelledby="tab-send" hidden>
+      <div>
+        <label for="msg">your message</label>
         <textarea id="msg" rows="2">ASK ME
 FOR A COIN</textarea>
       </div>
-      <div class="swatches" id="swatches" aria-label="colors">
-        <button data-c="red" style="background:#f00;color:#fff" aria-pressed="true" aria-label="white on red">Aa</button>
-        <button data-c="black" style="background:#000;color:#fff" aria-pressed="false" aria-label="white on black">Aa</button>
+      <div id="swatches" class="sw" role="group" aria-label="colors">
+        <button data-c="black" style="background:#000;color:#fff" aria-pressed="true" aria-label="white on black">Aa</button>
         <button data-c="paper" style="background:#fff;color:#000" aria-pressed="false" aria-label="black on white">Aa</button>
-        <button data-c="redink" style="background:#fff;color:#f00" aria-pressed="false" aria-label="red on white">Aa</button>
+        <button data-c="accent" id="swA" style="background:#000;color:#fff" aria-pressed="false" aria-label="white on red">Aa</button>
+        <button data-c="accentink" id="swB" style="background:#fff;color:#000" aria-pressed="false" aria-label="red on white">Aa</button>
       </div>
-    </div>
-    <div id="tabImage" hidden>
-      <div class="field">
-        <label for="file">pick a picture. it gets dithered to black, white and red.</label>
+      <div>
+        <label for="file">or use a picture</label>
         <input id="file" type="file" accept="image/*">
       </div>
-      <div class="row">
-        <label for="fit">framing</label>
-        <select id="fit" style="width:auto"><option value="cover">fill and crop</option><option value="contain">fit with margins</option></select>
+      <div class="pair" id="picTools" hidden>
+        <select id="fit" aria-label="framing"><option value="cover">fill and crop</option><option value="contain">fit with margins</option></select>
+        <button id="backToText" class="btn">use text instead</button>
       </div>
+      <button id="send" class="btn go">send to the badge</button>
+      <progress id="prog" value="0" max="1" hidden></progress>
     </div>
-    <div id="stage"><canvas id="cv" width="960" height="672"></canvas></div>
-    <button id="send" class="primary" disabled>put this on the badge</button>
-    <progress id="prog" value="0" max="1" hidden></progress>
+
+    <div id="qualityBox">
+    <div class="groupLabel" id="qLabel">how screens are drawn</div>
+    <div class="choice" role="radiogroup" aria-labelledby="qLabel">
+      <input type="radio" name="q" id="qFast" value="fast" checked><label for="qFast"><b>fast</b><span id="qFastSub">black and white, about 4 s</span></label>
+      <input type="radio" name="q" id="qColor" value="color"><label for="qColor"><b>full color</b><span id="qColorSub">with red, about 34 s</span></label>
+    </div>
+    </div>
+    <p class="prose">fast draws red as black. the badge runs a full color redraw now and then to keep the image clean.</p>
+    <button id="redraw" class="btn wide" style="margin-top:var(--s2)">redraw this screen in full color</button>
+
+    <details>
+      <summary>leds and badge info</summary>
+      <div class="pair" style="margin-top:var(--s2)">
+        <div><label for="led">led color</label><input id="led" type="color" value="#ff0000"></div>
+        <div><label for="bright">brightness</label><input id="bright" type="range" min="1" max="32" value="4"></div>
+      </div>
+      <div class="pair" style="margin-top:var(--s2)">
+        <button id="ledSet" class="btn">set leds</button>
+        <button id="ledOff" class="btn">leds off</button>
+      </div>
+      <dl class="facts">
+        <dt>wifi</dt><dd id="fWifi">unknown</dd>
+        <dt>power in</dt><dd id="fVin">unknown</dd>
+        <dt>awake for</dt><dd id="fUp">unknown</dd>
+        <dt>last fast draw</dt><dd id="fFast">not measured yet</dd>
+        <dt>last color draw</dt><dd id="fColor">not measured yet</dd>
+      </dl>
+      <button id="forget" class="btn wide" style="margin-top:var(--s3)">disconnect and forget the key</button>
+    </details>
   </section>
-</main>
+</div>
 
 <script>
 const RELAY = 'wss://relay.clasp.to';
 const KEY_STORE = 'hackbuild-badge.key';
-const W = 960, H = 672, ROW = 120, CHUNK = 9000, REFRESH_S = 38;
-const SCREENS = [
-  { id: 'logo', name: 'hack.build', img: 'slides/logo.png' },
-  { id: 's0', name: 'slide 1, machine', img: 'slides/s1.png', slide: 0 },
-  { id: 's1', name: 'slide 2, get a coin', img: 'slides/s2.png', slide: 1 },
-  { id: 's2', name: 'slide 3, tap it', img: 'slides/s3.png', slide: 2 },
-  { id: 's3', name: 'slide 4, rotor', img: 'slides/s4.png', slide: 3 },
-  { id: 's4', name: 'slide 5, grab it', img: 'slides/s5.png', slide: 4 },
-  { id: 's5', name: 'slide 6, ask me', img: 'slides/s6.png', slide: 5 },
-  { id: 'image', name: 'last sent' },
-];
+const W = 960, H = 672, ROW = 120, CHUNK = 9000;
+const SLIDES = ['s1', 's2', 's3', 's4', 's5', 's6'];
+const FALLBACK_MS = { fast: 4000, color: 34000 };
 const $ = id => document.getElementById(id);
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const te = new TextEncoder();
 
 let client = null, base = '', hmacKey = null, state = null, states = 0, online = false;
-let unsub = null, ackWaiter = null, nonceWaiters = [], sending = false, queue = Promise.resolve();
-let sourceImage = null, sentUrl = null, lastCmdAt = 0, busySince = 0, noBadgeTimer = 0, keepTimer = 0;
+let unsub = null, ackWaiter = null, nonceWaiters = [], queue = Promise.resolve();
+let sending = false, inFlight = false, lastAction = null, tab = 'logo', quality = 'fast';
+let sourceImage = null, sentUrl = null, messageAt = 0, busySince = 0, noBadgeTimer = 0, keepTimer = 0;
 
-function say(text, tone = '') {
-  $('say').textContent = text;
-  $('bar').dataset.tone = tone;
+// ---- the one status line ----
+
+function say(text, tone = '', retry = null) {
+  $('sayText').textContent = text;
+  $('say').className = tone === 'bad' ? 'bad' : '';
+  $('retry').hidden = !retry;
+  lastAction = retry;
+  messageAt = Date.now();
 }
 
-// ---- what the page tells you ----
-
-function currentId() {
-  if (!state) return '';
-  if (state.app === 'logo') return 'logo';
-  if (state.app === 'image') return 'image';
-  return `s${state.slide}`;
+function screenName() {
+  if (!state) return 'unknown';
+  if (state.app === 'logo') return 'the logo';
+  if (state.app === 'image') return 'your message';
+  return `slide ${state.slide + 1}`;
 }
 
-function describe() {
-  const s = SCREENS.find(x => x.id === currentId());
-  return s ? s.name : 'something else';
+function drawEstimate() {
+  const measured = state && (state.color ? state.color_ms : state.fast_ms);
+  return measured || FALLBACK_MS[state && state.color ? 'color' : 'fast'];
+}
+
+// The LED bar fills as the panel redraws, from what the badge last measured.
+for (let i = 0; i < 8; i++) $('lamps').append(document.createElement('i'));
+function lamps(fraction) {
+  [...$('lamps').children].forEach((l, i) => l.classList.toggle('on', fraction > 0 && i < Math.ceil(fraction * 8)));
+}
+
+setInterval(() => {
+  const busy = !!(online && state && state.busy);
+  if (!busy) {
+    busySince = 0;
+    lamps(0);
+    if (online && state && !inFlight && !sending && Date.now() - messageAt > 2500 && !lastAction) {
+      say(state.err || (state.app === 'capsule'
+        ? `showing slide ${state.slide + 1} of ${state.slides || 6}${state.paused ? ', paused' : ''}.`
+        : `showing ${screenName()}.`), state.err ? 'bad' : '');
+    }
+    return;
+  }
+  if (!busySince) busySince = Date.now();
+  const total = drawEstimate(), elapsed = Date.now() - busySince;
+  lamps(Math.min(1, elapsed / total));
+  const left = Math.max(1, Math.round((total - elapsed) / 1000));
+  if (!lastAction) {
+    $('sayText').textContent = `drawing ${screenName()}, about ${left} s.`;
+    $('say').className = '';
+    messageAt = Date.now();
+  }
+}, 250);
+
+// ---- screen state ----
+
+function showPanel() {
+  const drafting = tab === 'send';
+  $('cv').hidden = !drafting;
+  $('panelImg').hidden = drafting;
+  $('draft').hidden = !drafting;
+  $('panel').classList.toggle('bw', !drafting && !!state && !state.color);
+  if (drafting || !state) {
+    if (!state && !drafting) $('panelImg').src = 'slides/logo.png';
+    return;
+  }
+  const src = state.app === 'logo' ? 'slides/logo.png' : state.app === 'image' ? sentUrl : `slides/${SLIDES[state.slide] || 's1'}.png`;
+  $('panelImg').hidden = !src;
+  if (src && $('panelImg').getAttribute('src') !== src) $('panelImg').src = src;
+  $('panelImg').alt = `the badge shows ${screenName()}`;
 }
 
 function render() {
-  if (!client) return;
-  const live = online && state;
-  document.querySelectorAll('.tile').forEach(b => {
-    b.disabled = !live;
-    b.dataset.on = b.dataset.id === currentId() ? '1' : '0';
+  const live = !!(online && state);
+  const off = !live || inFlight || sending;
+  ['showLogo', 'prev', 'next', 'playSlides', 'redraw', 'ledSet', 'ledOff', 'holdUp', 'holdDown'].forEach(id => { $(id).disabled = off; });
+  document.querySelectorAll('#strip button').forEach((b, i) => {
+    b.disabled = off;
+    const cur = !!state && state.app === 'capsule' && state.slide === i;
+    b.setAttribute('aria-current', String(cur));
   });
-  ['prev', 'next'].forEach(id => { $(id).disabled = !live; });
-  $('send').disabled = !live || sending;
-  if (!state) return;
-  const s = SCREENS.find(x => x.id === currentId());
-  const src = s && s.id === 'image' ? sentUrl : s && s.img;
-  $('nowImg').hidden = !src;
-  if (src && $('nowImg').getAttribute('src') !== src) $('nowImg').src = src;
-  $('nowTag').textContent = describe();
-  if (document.activeElement !== $('hold')) $('hold').value = state.hold;
-  $('fWifi').textContent = state.ip ? `${state.ip}, ${state.rssi} dbm` : 'not joined';
-  $('fVin').textContent = `${state.vin} v`;
-  $('fUp').textContent = `${Math.round(state.up / 60)} min`;
-}
-
-// A refresh takes about 38 seconds, so the page counts it down instead of looking frozen.
-function tick() {
-  const busy = !!(state && state.busy && online);
-  $('bar').dataset.busy = busy ? '1' : '0';
-  if (busy) {
-    if (!busySince) busySince = Date.now();
-    const elapsed = (Date.now() - busySince) / 1000, left = Math.max(1, Math.round(REFRESH_S - elapsed));
-    $('meterFill').style.width = `${Math.min(100, elapsed / REFRESH_S * 100)}%`;
-    say(`badge is redrawing ${describe()}, about ${left} s left.`, 'wait');
-  } else {
-    busySince = 0;
+  $('send').disabled = off;
+  $('qFast').disabled = $('qColor').disabled = !live;
+  $('strip').classList.toggle('bw', quality !== 'color');
+  if (state) {
+    const playing = state.app === 'capsule' && !state.paused;
+    $('playSlides').textContent = state.app !== 'capsule' ? 'play the slides' : playing ? 'pause the slides' : 'resume the slides';
+    $('showLogo').textContent = state.app === 'logo' ? 'the logo is showing' : 'show the logo';
+    $('holdVal').textContent = state.hold;
+    $('fWifi').textContent = state.ip ? `${state.wifi || 'joined'}, ${state.ip}, ${state.rssi} dbm` : 'not joined';
+    $('fVin').textContent = `${state.vin} v`;
+    $('fUp').textContent = `${Math.round(state.up / 60)} min`;
+    if (state.fast_ms) $('fFast').textContent = `${(state.fast_ms / 1000).toFixed(1)} s`;
+    if (state.color_ms) $('fColor').textContent = `${(state.color_ms / 1000).toFixed(1)} s`;
+    if (state.quality && state.quality !== quality) setQuality(state.quality);
+    if (state.fast_ms) $('qFastSub').textContent = `black and white, ${(state.fast_ms / 1000).toFixed(1)} s`;
+    if (state.color_ms) $('qColorSub').textContent = `with red, ${Math.round(state.color_ms / 1000)} s`;
   }
+  showPanel();
 }
-setInterval(tick, 500);
 
-function settled() {
-  if (!state || !online || state.busy || sending) return;
-  if (state.err) say(state.err, 'bad');
-  else if (Date.now() - lastCmdAt > 3000) say(`badge is on, showing ${describe()}.`, 'good');
+function setQuality(q) {
+  quality = q;
+  (q === 'color' ? $('qColor') : $('qFast')).checked = true;
+  $('swA').style.background = q === 'color' ? '#f00' : '#000';
+  $('swB').style.color = q === 'color' ? '#f00' : '#000';
+  compose();
 }
 
 // ---- commands ----
@@ -295,35 +371,25 @@ async function command(c, v) {
       client.emit(`${base}/cmd`, `${sig}:${body}`);
       if (await waitForNonce(nonce, attempt ? 12000 : 7000)) return;
     }
-    throw new Error('the badge did not answer. it may be off or out of wifi.');
+    throw new Error('the badge did not answer. check that it is on and has wifi.');
   };
   const p = queue.then(run, run);
   queue = p.catch(() => {});
   return p;
 }
 
-async function act(c, v, waiting, done) {
-  lastCmdAt = Date.now();
-  say(waiting, 'wait');
+async function act(c, v, doneText) {
+  inFlight = true;
+  render();
+  say('telling the badge.');
   try {
     await command(c, v);
-    lastCmdAt = Date.now();
-    say(done, 'good');
-    return true;
+    lastAction = null;
+    say(doneText);
   } catch (e) {
-    say(e.message, 'bad');
-    return false;
+    say(e.message, 'bad', () => act(c, v, doneText));
   }
-}
-
-async function showScreen(s, tile) {
-  if (s.id === currentId()) { say(`badge is already showing ${s.name}.`, 'good'); return; }
-  tile.dataset.pending = '1';
-  const redraw = `badge got it. redrawing takes about ${REFRESH_S} s.`;
-  if (s.id === 'logo') await act('app', 'logo', 'telling the badge.', redraw);
-  else if (s.id === 'image') await act('app', 'image', 'telling the badge.', redraw);
-  else await act('slide', s.slide, 'telling the badge.', redraw);
-  tile.dataset.pending = '0';
+  inFlight = false;
   render();
 }
 
@@ -336,12 +402,12 @@ function applyState(s) {
   if (states >= 2 && !online) {
     online = true;
     clearTimeout(noBadgeTimer);
-    $('setupHint').hidden = true;
-    say(`badge is on, showing ${describe()}.`, 'good');
+    lastAction = null;
+    $('retry').hidden = true;
+    messageAt = 0;
   }
   nonceWaiters.splice(0).forEach(f => f());
   render();
-  settled();
 }
 
 function onMessage(value, address) {
@@ -358,62 +424,69 @@ function cleanKey(text) {
   return m ? m[0] : text.trim().replace(/^"+|"+$/g, '');
 }
 
+function hello() { if (client) client.emit(`${base}/keep`, 'hello'); }
+
 async function connect() {
   const key = cleanKey($('key').value);
-  if (!key) { say('paste your badge key first.', 'bad'); return; }
-  if (!window.CLASP) { say('the clasp library did not load. check your network.', 'bad'); return; }
-  $('key').value = key;
-  say('reaching the relay.', 'wait');
+  $('gateMsg').textContent = '';
+  if (!key) { $('gateMsg').textContent = 'paste your badge key first.'; $('key').focus(); return; }
+  if (!window.CLASP) { $('gateMsg').textContent = 'the connection library did not load. check your network and reload.'; return; }
+  $('connect').disabled = true;
+  $('connect').textContent = 'connecting';
   try {
     const room = hex(await crypto.subtle.digest('SHA-256', te.encode(key))).slice(0, 16);
     base = `/hb/badge/${room}`;
     hmacKey = await crypto.subtle.importKey('raw', te.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     client = new CLASP.Clasp(RELAY, { name: 'hack.build badge control', reconnect: true });
-    client.onDisconnect?.(() => { online = false; states = 0; render(); say('lost the relay. reconnecting.', 'bad'); });
-    client.onReconnect?.(() => { client.emit(`${base}/keep`, 'hello'); say('back on the relay. looking for the badge.', 'wait'); });
+    client.onDisconnect?.(() => { online = false; states = 0; render(); say('your connection dropped. reconnecting.', 'bad'); });
+    client.onReconnect?.(() => { hello(); say('reconnected. looking for the badge.'); });
     await client.connect();
     unsub = client.on(`${base}/**`, onMessage);
     try { localStorage.setItem(KEY_STORE, key); } catch (e) {}
-    ['choose', 'side', 'composer', 'disconnect'].forEach(id => { $(id).hidden = false; });
-    $('setup').hidden = true;
-    say('looking for the badge.', 'wait');
-    client.emit(`${base}/keep`, 'hello');
+    $('gate').hidden = true;
+    $('app').hidden = false;
+    say('looking for the badge.');
     // Asked twice, so a badge with no stored status on the relay still sends the two that prove it is awake.
-    setTimeout(() => client && client.emit(`${base}/keep`, 'hello'), 2500);
+    hello();
+    setTimeout(hello, 2500);
     // The relay only keeps the badge's session alive while it forwards something to it.
     keepTimer = setInterval(() => client && client.emit(`${base}/keep`, 'k'), 30000);
     noBadgeTimer = setTimeout(() => {
-      if (online) return;
-      say('no answer from a badge with this key.', 'bad');
-      $('setup').hidden = false;
-      $('setupHint').hidden = false;
-      $('setupHint').textContent = 'check the key, and that the badge is on with wifi. it can take a minute after a reset.';
+      if (!online) say('no badge answered with this key. check that it is on and has wifi, or re-enter the key.', 'bad', () => { hello(); say('looking for the badge.'); noBadgeWatch(); });
     }, 15000);
     render();
   } catch (e) {
     client = null;
-    say(`could not reach the relay: ${e.message}`, 'bad');
+    $('gateMsg').textContent = `could not reach the relay. check your network and try again.`;
   }
+  $('connect').disabled = false;
+  $('connect').textContent = 'connect';
 }
 
-function disconnect() {
+function noBadgeWatch() {
+  noBadgeTimer = setTimeout(() => { if (!online) say('still no answer from the badge.', 'bad', () => { hello(); noBadgeWatch(); }); }, 15000);
+}
+
+function forget() {
   clearInterval(keepTimer);
   clearTimeout(noBadgeTimer);
-  try { unsub?.(); client?.close(); } catch (e) {}
+  try { unsub?.(); client?.close(); localStorage.removeItem(KEY_STORE); } catch (e) {}
   client = null; state = null; states = 0; online = false;
-  ['choose', 'side', 'composer', 'disconnect'].forEach(id => { $(id).hidden = true; });
-  $('setup').hidden = false;
-  say('not connected.');
+  $('key').value = '';
+  $('app').hidden = true;
+  $('gate').hidden = false;
+  $('key').focus();
 }
 
 // ---- composing ----
 
 const cv = $('cv'), cx = cv.getContext('2d', { willReadFrequently: true });
-let scheme = 'red', mode = 'text';
+let scheme = 'black', source = 'text';
 
 function drawText() {
   const lines = $('msg').value.split('\n').map(s => s.trim()).filter(Boolean);
-  const [bg, fg] = { red: ['#ff0000', '#ffffff'], black: ['#000000', '#ffffff'], paper: ['#ffffff', '#000000'], redink: ['#ffffff', '#ff0000'] }[scheme];
+  const ink = quality === 'color' ? '#ff0000' : '#000000';
+  const [bg, fg] = { accent: [ink, '#ffffff'], black: ['#000000', '#ffffff'], paper: ['#ffffff', '#000000'], accentink: ['#ffffff', ink] }[scheme];
   cx.fillStyle = bg;
   cx.fillRect(0, 0, W, H);
   if (!lines.length) return;
@@ -451,7 +524,7 @@ function ditherToPanel() {
   const img = cx.getImageData(0, 0, W, H), d = img.data;
   const f = new Float32Array(W * H * 3);
   for (let i = 0; i < W * H; i++) { f[i * 3] = d[i * 4]; f[i * 3 + 1] = d[i * 4 + 1]; f[i * 3 + 2] = d[i * 4 + 2]; }
-  const pal = [[255, 255, 255], [0, 0, 0], [255, 0, 0]];
+  const pal = quality === 'color' ? [[255, 255, 255], [0, 0, 0], [255, 0, 0]] : [[255, 255, 255], [0, 0, 0]];
   const spread = [[1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = (y * W + x) * 3;
@@ -487,7 +560,7 @@ function thresholdToPanel() {
 }
 
 function compose() {
-  if (mode === 'text') { drawText(); thresholdToPanel(); } else { drawImage(); ditherToPanel(); }
+  if (source === 'text') { drawText(); thresholdToPanel(); } else { drawImage(); ditherToPanel(); }
 }
 
 // Black plane then red plane, 120 bytes a row, leftmost pixel in the top bit, as the firmware stores them.
@@ -524,7 +597,7 @@ async function sendImage() {
   sending = true;
   render();
   $('prog').hidden = false;
-  lastCmdAt = Date.now();
+  const color = quality === 'color';
   try {
     const z = await zlib(planes());
     const sha = hex(await crypto.subtle.digest('SHA-256', z));
@@ -532,9 +605,9 @@ async function sendImage() {
     const count = Math.ceil(z.length / CHUNK);
     $('prog').max = count;
     $('prog').value = 0;
-    say(`sending ${Math.round(z.length / 1024)} kb to the badge.`, 'wait');
+    say(`sending ${Math.round(z.length / 1024)} kb.`);
     const started = waitAck(`${id}:-1`);
-    await command('img', { id, size: z.length, sha });
+    await command('img', { id, size: z.length, sha, color });
     await started;
     for (let i = 0; i < count; i++) {
       const acked = waitAck(`${id}:${i}`);
@@ -543,10 +616,11 @@ async function sendImage() {
       $('prog').value = i + 1;
     }
     sentUrl = cv.toDataURL('image/png');
-    lastCmdAt = Date.now();
-    say(`sent. redrawing takes about ${REFRESH_S} s.`, 'good');
+    lastAction = null;
+    say('sent. the badge is drawing it.');
+    selectTab('logo');
   } catch (e) {
-    say(e.message === 'no badge yet' ? 'no badge connected.' : `send failed. ${e.message}`, 'bad');
+    say(`send failed. ${e.message}`, 'bad', sendImage);
   }
   sending = false;
   $('prog').hidden = true;
@@ -555,49 +629,72 @@ async function sendImage() {
 
 // ---- wiring ----
 
-SCREENS.forEach(s => {
-  const b = document.createElement('button');
-  b.className = 'tile';
-  b.dataset.id = s.id;
-  b.disabled = true;
-  if (s.img) {
-    const img = document.createElement('img');
-    img.src = s.img;
-    img.alt = '';
-    b.append(img);
-  } else {
-    const blank = document.createElement('div');
-    blank.className = 'blank';
-    blank.textContent = 'your last send';
-    b.append(blank);
-  }
-  const label = document.createElement('span');
-  label.textContent = s.name;
-  b.append(label);
-  b.addEventListener('click', () => showScreen(s, b));
-  $('tiles').append(b);
+const TABS = ['logo', 'slides', 'send'];
+function selectTab(name, focus = false) {
+  tab = name;
+  TABS.forEach(t => {
+    const on = t === name;
+    $(`tab-${t}`).setAttribute('aria-selected', String(on));
+    $(`tab-${t}`).tabIndex = on ? 0 : -1;
+    $(`pane-${t}`).hidden = !on;
+  });
+  if (focus) $(`tab-${name}`).focus();
+  showPanel();
+}
+TABS.forEach((t, i) => {
+  $(`tab-${t}`).addEventListener('click', () => selectTab(t));
+  $(`tab-${t}`).addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') selectTab(TABS[(i + 1) % 3], true);
+    if (e.key === 'ArrowLeft') selectTab(TABS[(i + 2) % 3], true);
+  });
 });
-$('connect').addEventListener('click', connect);
-$('disconnect').addEventListener('click', disconnect);
-$('key').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
-const moved = `badge got it. redrawing takes about ${REFRESH_S} s.`;
-$('next').addEventListener('click', () => act('next', 1, 'telling the badge.', moved));
-$('prev').addEventListener('click', () => act('next', -1, 'telling the badge.', moved));
-$('hold').addEventListener('change', () => act('hold', Number($('hold').value), 'telling the badge.', `each slide now holds ${$('hold').value} s.`));
+SLIDES.forEach((name, i) => {
+  const b = document.createElement('button');
+  b.setAttribute('aria-label', `show slide ${i + 1}`);
+  const img = document.createElement('img');
+  img.src = `slides/${name}.png`;
+  img.alt = '';
+  const n = document.createElement('b');
+  n.textContent = i + 1;
+  b.append(img, n);
+  b.addEventListener('click', () => act('slide', i, `going to slide ${i + 1}.`));
+  $('strip').append(b);
+});
+$('gateForm').addEventListener('submit', e => { e.preventDefault(); connect(); });
+$('reveal').addEventListener('click', () => {
+  const show = $('key').type === 'password';
+  $('key').type = show ? 'text' : 'password';
+  $('reveal').textContent = show ? 'hide' : 'show';
+  $('reveal').setAttribute('aria-pressed', String(show));
+});
+$('retry').addEventListener('click', () => { const f = lastAction; lastAction = null; $('retry').hidden = true; if (f) f(); });
+$('forget').addEventListener('click', forget);
+$('showLogo').addEventListener('click', () => {
+  if (state.app === 'logo') { say('the logo is already showing.'); return; }
+  act('app', 'logo', 'going to the logo.');
+});
+$('playSlides').addEventListener('click', () => {
+  if (state.app !== 'capsule') act('app', 'capsule', 'starting the slides.');
+  else act('pause', !state.paused, state.paused ? 'slides resumed.' : 'slides paused.');
+});
+$('next').addEventListener('click', () => act('next', 1, 'going to the next slide.'));
+$('prev').addEventListener('click', () => act('next', -1, 'going to the previous slide.'));
+function changeHold(d) {
+  const v = Math.max(2, Math.min(120, state.hold + d));
+  act('hold', v, `each slide now stays ${v} s.`);
+}
+$('holdUp').addEventListener('click', () => changeHold(state.hold >= 20 ? 5 : 1));
+$('holdDown').addEventListener('click', () => changeHold(state.hold > 20 ? -5 : -1));
+document.querySelectorAll('input[name=q]').forEach(r => r.addEventListener('change', () => {
+  setQuality(r.value);
+  act('quality', r.value, r.value === 'color' ? 'new screens will be full color.' : 'new screens will be fast.');
+}));
+$('redraw').addEventListener('click', () => act('redraw', 1, 'redrawing in full color.'));
 $('ledSet').addEventListener('click', () => {
   const v = parseInt($('led').value.slice(1), 16), k = Number($('bright').value) / 255;
-  act('led', [Math.round((v >> 16) * k), Math.round(((v >> 8) & 255) * k), Math.round((v & 255) * k)], 'telling the badge.', 'leds set.');
+  act('led', [Math.round((v >> 16) * k), Math.round(((v >> 8) & 255) * k), Math.round((v & 255) * k)], 'leds set.');
 });
-$('ledOff').addEventListener('click', () => act('led', [0, 0, 0], 'telling the badge.', 'leds off.'));
-$('tabs').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  mode = b.dataset.tab;
-  document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-  $('tabText').hidden = mode !== 'text';
-  $('tabImage').hidden = mode !== 'image';
-  compose();
-});
+$('ledOff').addEventListener('click', () => act('led', [0, 0, 0], 'leds off.'));
 $('swatches').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -605,16 +702,23 @@ $('swatches').addEventListener('click', e => {
   document.querySelectorAll('#swatches button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   compose();
 });
-['msg', 'fit'].forEach(id => $(id).addEventListener('input', compose));
+$('msg').addEventListener('input', () => { source = 'text'; $('picTools').hidden = true; compose(); });
+$('fit').addEventListener('input', compose);
 $('file').addEventListener('change', async () => {
   const f = $('file').files[0];
   if (!f) return;
-  try { sourceImage = await createImageBitmap(f); compose(); }
-  catch (e) { say('that file would not open as a picture.', 'bad'); }
+  try {
+    sourceImage = await createImageBitmap(f);
+    source = 'image';
+    $('picTools').hidden = false;
+    compose();
+  } catch (e) { say('that file would not open as a picture. try a jpeg or png.', 'bad'); }
 });
+$('backToText').addEventListener('click', () => { source = 'text'; $('picTools').hidden = true; $('file').value = ''; compose(); });
 $('send').addEventListener('click', sendImage);
 document.fonts.load('80px "Permanent Marker"').then(compose, compose);
 compose();
+render();
 try {
   const saved = localStorage.getItem(KEY_STORE);
   if (saved) { $('key').value = saved; connect(); }

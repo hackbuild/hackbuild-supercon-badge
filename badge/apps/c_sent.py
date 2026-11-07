@@ -4,14 +4,11 @@ from lib import hb_state
 
 
 class SentApp(BaseApp):
-    _instance = None
-
     def __init__(self, name=None):
         super().__init__("Sent")
-        self.sleep_ms = 200
+        self.sleep_ms = 100
         self.pending = False
         self.request = False
-        SentApp._instance = self
 
     def run(self):
         if self.launched or self.request:
@@ -20,5 +17,5 @@ class SentApp(BaseApp):
             hb_state.remember("image")
         if self.pending and hb_state.panel_idle():
             self.pending = False
-            if not hb_state.show_sent():
-                hb_state.show_png("/data/hb/logo.png")
+            if not hb_state.show(hb_state.SENT_PATH):
+                hb_state.show("/data/hb/logo.z")
