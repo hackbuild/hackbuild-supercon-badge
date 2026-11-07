@@ -50,6 +50,7 @@ Open the controller, paste the same key and press **connect**. The key stays in 
 - Commands carry an HMAC-SHA256 signature and a one time nonce, so forged and replayed commands get rejected.
 - Images are checked against a signed SHA-256 before they're shown.
 - Traffic isn't encrypted end to end. Anyone who finds the path can read the badge's status and any image you send.
+- The relay only counts messages it forwards to a client as activity, and drops subscriptions after 300 s without any. So the badge renews its session every 240 s when idle, and an open controller page sends a heartbeat. A command sent during a renewal is retried by the page.
 - The badge doesn't verify the relay's TLS certificate, because it has no CA bundle. The signatures protect commands, and they don't hide anything.
 
 ## Numbers

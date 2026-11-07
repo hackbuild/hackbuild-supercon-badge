@@ -27,6 +27,7 @@ class CapsuleApp(BaseApp):
         self.index = 0
         self.step = 0
         self.next_at = 0
+        self.jump = None
         self.request = False
         CapsuleApp._instance = self
 
@@ -51,7 +52,8 @@ class CapsuleApp(BaseApp):
         if self.launched or self.request:
             self.request = False
             hb_state.remember("capsule")
-            self.index = 0
+            self.index = self.jump if self.jump is not None else 0
+            self.jump = None
             self.step = 0
             self.next_at = 0
         if UserA.pressed():

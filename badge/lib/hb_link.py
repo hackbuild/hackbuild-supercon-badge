@@ -23,6 +23,10 @@ from lib.led_bar import leds
 CHUNK_LIMIT = 400000
 STATE_EVERY_S = 30
 PING_EVERY_S = 15
+# The relay counts only traffic it forwards to a client as activity, not its pongs, and after 300 s
+# drops the session's subscriptions while leaving the socket open. Status would keep flowing out and
+# commands would silently stop, so an idle session is replaced before that can happen.
+RENEW_AFTER_S = 240
 
 
 def _hmac(key, msg):
@@ -49,6 +53,7 @@ class Link:
         self.outbox = []
         self.transfer = None
         self.started = time.time()
+        self.last_rx = self.started
         self.sta = network.WLAN(network.STA_IF)
 
     def goto(self, app):
@@ -70,7 +75,13 @@ class Link:
         return False
 
     def on_message(self, address, value):
+        self.last_rx = time.time()
         if not isinstance(value, str):
+            return
+        if address == self.base + "/keep":
+            # A page that just opened asks for fresh status, so it can tell the badge is really on.
+            if value == "hello":
+                hb_state.changed()
             return
         if address == self.base + "/cmd":
             self.on_command(value)
@@ -96,9 +107,15 @@ class Link:
             self.goto(val)
         elif cmd == "next":
             from apps.b_capsule import CapsuleApp
-            self.goto("capsule") if hb_state.status["app"] != "capsule" else None
-            if CapsuleApp._instance:
+            if hb_state.status["app"] != "capsule":
+                self.goto("capsule")
+            elif CapsuleApp._instance:
                 CapsuleApp._instance.skip(int(val or 1))
+        elif cmd == "slide":
+            from apps.b_capsule import CapsuleApp
+            if CapsuleApp._instance:
+                CapsuleApp._instance.jump = int(val)
+                self.goto("capsule")
         elif cmd == "hold":
             hb_state.config["hold"] = max(5, min(3600, int(val)))
             hb_state.save()
@@ -203,6 +220,8 @@ class Link:
                 was_busy = busy
                 last_state = now
                 await self.client.set(self.base + "/state", self.state_json())
+            if now - self.last_rx >= RENEW_AFTER_S:
+                raise OSError("renewing relay session")
             if now - last_ping >= PING_EVERY_S:
                 last_ping = now
                 await self.client.ping()
@@ -218,11 +237,16 @@ class Link:
         print("hb_link: on relay as", self.base)
         await self.client.subscribe(self.base + "/cmd", 1)
         await self.client.subscribe(self.base + "/chunk", 2)
+        await self.client.subscribe(self.base + "/keep", 3)
+        self.last_rx = time.time()
         hb_state.changed()
+        reader = aio.create_task(self.client.run())
         writer = aio.create_task(self.writer())
         try:
-            await self.client.run()
+            while not reader.done() and not writer.done():
+                await aio.sleep_ms(200)
         finally:
+            reader.cancel()
             writer.cancel()
             self.client.close()
 
