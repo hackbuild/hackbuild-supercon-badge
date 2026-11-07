@@ -230,6 +230,14 @@ class Link:
         if self.sta.isconnected():
             return True
         hb_state.status["wifi"] = ""
+        # After a dropped network the driver keeps reconnecting on its own, and then scans come
+        # back empty and connect() raises "Wifi Internal Error". Power cycling the radio clears it.
+        try:
+            self.sta.disconnect()
+        except OSError:
+            pass
+        self.sta.active(False)
+        await aio.sleep_ms(300)
         self.sta.active(True)
         try:
             self.sta.config(pm=self.sta.PM_NONE)
@@ -237,7 +245,11 @@ class Link:
             pass
         for net in self.known_networks():
             print("hb_link: joining", net["ssid"])
-            self.sta.connect(net["ssid"], net["password"])
+            try:
+                self.sta.connect(net["ssid"], net["password"])
+            except OSError as ex:
+                print("hb_link: connect refused", net["ssid"], ex)
+                continue
             for _ in range(30):
                 if self.sta.isconnected():
                     hb_state.status["wifi"] = net["ssid"]
