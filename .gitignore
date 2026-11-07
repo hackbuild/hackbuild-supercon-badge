@@ -1,0 +1,5 @@
+.DS_Store
+backup-stock/
+badge/secret.local.json
+__pycache__/
+.hbf/

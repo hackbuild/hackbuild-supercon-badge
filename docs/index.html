@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Badge Control</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --pink:#FE0386;--paper:#f5f0e6;--card:#fffdf7;--ink:#1a1a1a;--void:#0a0a0a;--ink3:#6b6459;--red:#ff0000;
+  --ok:#1f7a48;--err:#c3251f;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:13px/1.4 var(--mono)}
+button,input,select,textarea{font:inherit;color:inherit;border-radius:0}
+button{background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:var(--s2) var(--s3);cursor:pointer;box-shadow:3px 3px 0 var(--ink3)}
+button:hover:not(:disabled){box-shadow:3px 3px 0 var(--ink)}
+button:disabled{opacity:.4;cursor:default;box-shadow:none}
+button.quiet{background:var(--card);color:var(--ink);box-shadow:none}
+input,select,textarea{background:var(--card);border:2px solid var(--ink);padding:var(--s1) var(--s2);width:100%;min-width:0}
+input[type=range]{padding:0;border:0;background:none;accent-color:var(--ink)}
+input[type=color]{padding:0;height:34px}
+header{background:var(--ink);color:var(--paper);display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);align-items:center;padding:var(--s2) var(--s4)}
+h1{font:26px var(--disp);margin:0}
+header p{font:14px var(--type);margin:0;opacity:.8;flex:1;min-width:180px}
+header a{color:var(--paper)}
+main{max-width:1120px;margin:0 auto;padding:var(--s4);display:grid;gap:var(--s4);grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:start}
+.col{display:grid;gap:var(--s4);min-width:0}
+.panel{background:var(--card);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s3) var(--s4);min-width:0}
+h2{font:20px var(--inst);text-transform:uppercase;letter-spacing:.06em;margin:0 0 var(--s2);border-bottom:1px dashed var(--ink3)}
+.hint{font:13px var(--type);color:var(--ink3);margin:var(--s2) 0 0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:center;margin:var(--s2) 0}
+.apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2)}
+.apps button{background:var(--card);color:var(--ink);box-shadow:none;padding:var(--s3) var(--s2)}
+.apps button[aria-pressed=true]{background:var(--pink);color:var(--card);box-shadow:3px 3px 0 var(--ink)}
+.lamps{display:grid;gap:var(--s1);font-size:12px}
+.lamps div{display:flex;justify-content:space-between;gap:var(--s2)}
+.lamps b{font:17px/1 var(--inst);text-align:right;overflow-wrap:anywhere}
+.ok{color:var(--ok)}.bad{color:var(--err)}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2);margin-top:var(--s2)}
+.thumbs button{padding:0;background:#fff;box-shadow:none;line-height:0;border:2px solid var(--ink)}
+.thumbs button[aria-pressed=true]{outline:4px solid var(--ink);outline-offset:-1px}
+.thumbs img{width:100%;height:auto;display:block}
+#stage{background:var(--void);padding:var(--s3);line-height:0}
+#stage canvas{width:100%;height:auto;background:#fff;display:block;image-rendering:pixelated}
+.tabs{display:flex;gap:var(--s2);margin-bottom:var(--s2)}
+.tabs button{flex:1;background:var(--card);color:var(--ink);box-shadow:none}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--card)}
+progress{width:100%;height:12px;accent-color:var(--ink);display:block;margin-top:var(--s2)}
+#log{list-style:none;margin:0;padding:0;font-size:12px;max-height:150px;overflow:auto}
+#log li{padding:2px 0;border-bottom:1px solid var(--paper);overflow-wrap:anywhere}
+@media (max-width:760px){main{grid-template-columns:minmax(0,1fr);padding:var(--s3)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>badge control</h1>
+  <p>drive the supercon badge from anywhere, over clasp.</p>
+  <a href="viewer.html">preview the screens</a>
+</header>
+<main>
+  <div class="col">
+    <section class="panel">
+      <h2>screen</h2>
+      <div class="apps" id="apps">
+        <button data-app="logo" aria-pressed="false" disabled>hack.build</button>
+        <button data-app="capsule" aria-pressed="false" disabled>capsule slides</button>
+        <button data-app="image" aria-pressed="false" disabled>last sent</button>
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+      <p class="hint">a color refresh takes about 38 seconds, measured on this badge. the panel flashes while it runs.</p>
+    </section>
+    <section class="panel">
+      <h2>send to the badge</h2>
+      <div class="tabs" id="tabs">
+        <button data-tab="text" aria-pressed="true">big text</button>
+        <button data-tab="image" aria-pressed="false">image</button>
+      </div>
+      <div id="tabText">
+        <label for="msg">message, one line per row</label>
+        <textarea id="msg" rows="3">ASK ME
+FOR A COIN</textarea>
+        <div class="row">
+          <label for="txtColor">colors</label>
+          <select id="txtColor" style="width:auto">
+            <option value="red">white on red</option>
+            <option value="black">white on black</option>
+            <option value="paper">black on white</option>
+            <option value="redink">red on white</option>
+          </select>
+        </div>
+      </div>
+      <div id="tabImage" hidden>
+        <label for="file">pick an image. it stays in this page until you press send.</label>
+        <input id="file" type="file" accept="image/*">
+        <div class="row">
+          <label for="fit">framing</label>
+          <select id="fit" style="width:auto"><option value="cover">fill and crop</option><option value="contain">fit with margins</option></select>
+        </div>
+        <div class="row">
+          <label for="useRed">use red for warm colors</label>
+          <input id="useRed" type="checkbox" checked style="width:auto">
+        </div>
+      </div>
+      <div id="stage"><canvas id="cv" width="960" height="672"></canvas></div>
+      <div class="row">
+        <span id="sendInfo" class="hint" style="margin:0">this is what the panel will show.</span>
+        <button id="send" disabled>send</button>
+      </div>
+      <progress id="prog" value="0" max="1" hidden></progress>
+    </section>
+  </div>
+  <div class="col">
+    <section class="panel">
+      <h2>connection</h2>
+      <label for="key">badge key. stays in this browser, and is never sent anywhere.</label>
+      <div class="row">
+        <input id="key" type="password" autocomplete="off" spellcheck="false">
+        <button id="connect">connect</button>
+      </div>
+      <div class="lamps">
+        <div>relay <b id="lRelay" class="bad">off</b></div>
+        <div>badge <b id="lBadge">unknown</b></div>
+        <div>showing <b id="lApp">unknown</b></div>
+        <div>panel <b id="lBusy">unknown</b></div>
+        <div>wifi <b id="lWifi">unknown</b></div>
+        <div>supply <b id="lVin">unknown</b></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>slides</h2>
+      <div class="row">
+        <label for="hold">hold each slide, seconds</label>
+        <input id="hold" type="number" min="5" max="3600" step="5" style="width:90px" disabled>
+      </div>
+      <div class="row">
+        <button id="prev" class="quiet" disabled>previous</button>
+        <button id="next" disabled>next slide</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>leds</h2>
+      <div class="row">
+        <label for="led">led bar color</label>
+        <input id="led" type="color" value="#ff0000" style="width:70px" disabled>
+      </div>
+      <div class="row">
+        <label for="bright">brightness</label>
+        <input id="bright" type="range" min="1" max="32" value="4" style="width:130px" disabled>
+      </div>
+      <div class="row">
+        <button id="ledOff" class="quiet" disabled>off</button>
+        <button id="ledSet" disabled>set leds</button>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>log</h2>
+      <ul id="log"></ul>
+    </section>
+  </div>
+</main>
+<script>
+const RELAY = 'wss://relay.clasp.to';
+const KEY_STORE = 'hackbuild-badge.key';
+const W = 960, H = 672, ROW = 120, CHUNK = 9000;
+const SLIDES = ['s1', 's2', 's3', 's4', 's5', 's6'];
+const $ = id => document.getElementById(id);
+const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+const te = new TextEncoder();
+
+let client = null, base = '', hmacKey = null, state = null, heardAt = 0, sourceImage = null;
+let unsub = null, ackWaiter = null, nonceWaiters = [], sending = false, queue = Promise.resolve();
+
+function log(text, cls = '') {
+  const li = document.createElement('li');
+  li.textContent = `${new Date().toLocaleTimeString([], { hour12: false })} ${text}`;
+  li.className = cls;
+  $('log').prepend(li);
+  while ($('log').children.length > 60) $('log').lastChild.remove();
+}
+
+function controls(on) {
+  document.querySelectorAll('#apps button,#thumbs button').forEach(b => { b.disabled = !on; });
+  ['hold', 'prev', 'next', 'led', 'bright', 'ledOff', 'ledSet'].forEach(id => { $(id).disabled = !on; });
+  $('send').disabled = !on || sending;
+}
+
+// ---- commands ----
+
+function waitForNonce(old) {
+  if (state && state.n !== old) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('the badge did not answer')), 12000);
+    nonceWaiters.push(() => { clearTimeout(t); resolve(); });
+  });
+}
+
+async function command(c, v) {
+  // One at a time: each signature uses the single nonce the badge last published.
+  const run = async () => {
+    if (!state) throw new Error('nothing heard from the badge yet');
+    const nonce = state.n;
+    const body = JSON.stringify({ n: nonce, c, v });
+    const sig = hex(await crypto.subtle.sign('HMAC', hmacKey, te.encode(body)));
+    client.emit(`${base}/cmd`, `${sig}:${body}`);
+    await waitForNonce(nonce);
+  };
+  const p = queue.then(run, run);
+  queue = p.catch(() => {});
+  return p;
+}
+
+const act = (c, v, label) => command(c, v).then(() => log(label, 'ok')).catch(e => log(`${label} failed: ${e.message}`, 'bad'));
+
+// ---- state ----
+
+function applyState(s) {
+  state = s;
+  heardAt = Date.now();
+  nonceWaiters.splice(0).forEach(f => f());
+  document.querySelectorAll('#apps button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.app === s.app)));
+  document.querySelectorAll('#thumbs button').forEach((b, i) => b.setAttribute('aria-pressed', String(s.app === 'capsule' && s.slide === i)));
+  const names = { logo: 'hack.build', capsule: `capsule slide ${s.slide + 1}`, image: 'last sent' };
+  $('lApp').textContent = names[s.app] || s.app;
+  $('lBusy').textContent = s.busy ? 'refreshing' : 'idle';
+  $('lWifi').textContent = s.ip ? `${s.ip}, ${s.rssi} dbm` : 'not joined';
+  $('lVin').textContent = `${s.vin} v`;
+  if (document.activeElement !== $('hold')) $('hold').value = s.hold;
+  if (s.err) log(s.err, 'bad');
+  controls(true);
+  heard();
+}
+
+function heard() {
+  if (!client) return;
+  const age = heardAt ? Math.round((Date.now() - heardAt) / 1000) : null;
+  $('lBadge').textContent = age === null ? 'not heard yet' : age < 70 ? `heard ${age} s ago` : `quiet for ${age} s, it may be off`;
+  $('lBadge').className = age !== null && age < 70 ? 'ok' : 'bad';
+}
+setInterval(heard, 2000);
+
+function onMessage(value, address) {
+  if (address === `${base}/state`) {
+    try { applyState(JSON.parse(value)); } catch (e) { log('bad state from the badge', 'bad'); }
+  } else if (address === `${base}/ack` && ackWaiter) {
+    ackWaiter(String(value));
+  }
+}
+
+async function connect() {
+  if (client) { disconnect(); return; }
+  const key = $('key').value.trim();
+  if (!key) { log('enter the badge key first', 'bad'); return; }
+  if (!window.CLASP) { log('the clasp library did not load. check your network.', 'bad'); return; }
+  try {
+    const room = hex(await crypto.subtle.digest('SHA-256', te.encode(key))).slice(0, 16);
+    base = `/hb/badge/${room}`;
+    hmacKey = await crypto.subtle.importKey('raw', te.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    client = new CLASP.Clasp(RELAY, { name: 'hack.build badge control', reconnect: true });
+    client.onDisconnect?.(() => { $('lRelay').textContent = 'reconnecting'; $('lRelay').className = 'bad'; });
+    client.onReconnect?.(() => { $('lRelay').textContent = 'on'; $('lRelay').className = 'ok'; });
+    await client.connect();
+    unsub = client.on(`${base}/**`, onMessage);
+    try { localStorage.setItem(KEY_STORE, key); } catch (e) {}
+    $('connect').textContent = 'disconnect';
+    $('lRelay').textContent = 'on';
+    $('lRelay').className = 'ok';
+    log('on the relay. waiting for the badge.', 'ok');
+    heard();
+  } catch (e) {
+    client = null;
+    log(`could not reach the relay: ${e.message}`, 'bad');
+  }
+}
+
+function disconnect() {
+  try { unsub?.(); client?.close(); } catch (e) {}
+  client = null; state = null; heardAt = 0;
+  controls(false);
+  $('connect').textContent = 'connect';
+  $('lRelay').textContent = 'off';
+  $('lRelay').className = 'bad';
+  $('lBadge').textContent = 'unknown';
+  $('lBadge').className = '';
+}
+
+// ---- composing ----
+
+const cv = $('cv'), cx = cv.getContext('2d', { willReadFrequently: true });
+
+function drawText() {
+  const lines = $('msg').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const scheme = { red: ['#ff0000', '#ffffff'], black: ['#000000', '#ffffff'], paper: ['#ffffff', '#000000'], redink: ['#ffffff', '#ff0000'] }[$('txtColor').value];
+  cx.fillStyle = scheme[0];
+  cx.fillRect(0, 0, W, H);
+  if (!lines.length) return;
+  const font = s => `${s}px "Permanent Marker", sans-serif`;
+  const margin = 40, maxLine = H / lines.length;
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillStyle = scheme[1];
+  const sizes = lines.map(line => {
+    cx.font = font(200);
+    return Math.min(200 * (W - 2 * margin) / cx.measureText(line).width, maxLine * 0.92);
+  });
+  const total = sizes.reduce((a, b) => a + b * 1.12, 0);
+  let y = (H - total) / 2;
+  lines.forEach((line, i) => {
+    cx.font = font(sizes[i]);
+    y += sizes[i] * 0.56;
+    cx.fillText(line, W / 2, y);
+    y += sizes[i] * 0.56;
+  });
+}
+
+function drawImage() {
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, W, H);
+  if (!sourceImage) return;
+  const fit = $('fit').value === 'cover' ? Math.max : Math.min;
+  const s = fit(W / sourceImage.width, H / sourceImage.height);
+  const dw = sourceImage.width * s, dh = sourceImage.height * s;
+  cx.drawImage(sourceImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
+}
+
+// Atkinson dither onto the three panel colors. It keeps flat areas clean, which suits e-paper.
+function ditherToPanel(useRed) {
+  const img = cx.getImageData(0, 0, W, H), d = img.data;
+  const f = new Float32Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) { f[i * 3] = d[i * 4]; f[i * 3 + 1] = d[i * 4 + 1]; f[i * 3 + 2] = d[i * 4 + 2]; }
+  const pal = useRed ? [[255, 255, 255], [0, 0, 0], [255, 0, 0]] : [[255, 255, 255], [0, 0, 0]];
+  const spread = [[1, 0], [2, 0], [-1, 1], [0, 1], [1, 1], [0, 2]];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 3;
+    let best = pal[0], bestD = Infinity;
+    for (const p of pal) {
+      const e = (f[i] - p[0]) ** 2 + (f[i + 1] - p[1]) ** 2 + (f[i + 2] - p[2]) ** 2;
+      if (e < bestD) { bestD = e; best = p; }
+    }
+    const er = (f[i] - best[0]) / 8, eg = (f[i + 1] - best[1]) / 8, eb = (f[i + 2] - best[2]) / 8;
+    f[i] = best[0]; f[i + 1] = best[1]; f[i + 2] = best[2];
+    for (const [dx, dy] of spread) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= W || ny >= H) continue;
+      const j = (ny * W + nx) * 3;
+      f[j] += er; f[j + 1] += eg; f[j + 2] += eb;
+    }
+  }
+  for (let i = 0; i < W * H; i++) { d[i * 4] = f[i * 3]; d[i * 4 + 1] = f[i * 3 + 1]; d[i * 4 + 2] = f[i * 3 + 2]; d[i * 4 + 3] = 255; }
+  cx.putImageData(img, 0, 0);
+}
+
+// Text only needs its edges snapped to the palette, since dithering would fuzz them.
+function thresholdToPanel() {
+  const img = cx.getImageData(0, 0, W, H), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const red = d[i] > 127 && d[i + 1] < 128 && d[i + 2] < 128;
+    const black = d[i] < 128 && d[i + 1] < 128 && d[i + 2] < 128;
+    d[i] = black ? 0 : 255;
+    d[i + 1] = d[i + 2] = red || black ? 0 : 255;
+    d[i + 3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+}
+
+let mode = 'text';
+function compose() {
+  if (mode === 'text') { drawText(); thresholdToPanel(); } else { drawImage(); ditherToPanel($('useRed').checked); }
+}
+
+// Black plane then red plane, 120 bytes a row, leftmost pixel in the top bit, as the firmware stores them.
+function planes() {
+  const d = cx.getImageData(0, 0, W, H).data;
+  const out = new Uint8Array(ROW * H * 2);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, bit = 0x80 >> (x & 7), at = y * ROW + (x >> 3);
+    if (d[i] < 128) out[at] |= bit;
+    else if (d[i + 1] < 128) out[ROW * H + at] |= bit;
+  }
+  return out;
+}
+
+async function zlib(bytes) {
+  const s = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+function waitAck(want) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => { ackWaiter = null; reject(new Error('the badge stopped answering')); }, 20000);
+    ackWaiter = got => { if (got === want) { clearTimeout(t); ackWaiter = null; resolve(); } };
+  });
+}
+
+function b64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 3000) s += String.fromCharCode(...bytes.subarray(i, i + 3000));
+  return btoa(s);
+}
+
+async function sendImage() {
+  sending = true;
+  $('send').disabled = true;
+  $('prog').hidden = false;
+  try {
+    const z = await zlib(planes());
+    const sha = hex(await crypto.subtle.digest('SHA-256', z));
+    const id = Math.random().toString(36).slice(2, 8);
+    const count = Math.ceil(z.length / CHUNK);
+    $('prog').max = count;
+    $('prog').value = 0;
+    $('sendInfo').textContent = `sending ${Math.round(z.length / 1024)} kb in ${count} chunks.`;
+    const started = waitAck(`${id}:-1`);
+    await command('img', { id, size: z.length, sha });
+    await started;
+    for (let i = 0; i < count; i++) {
+      const acked = waitAck(`${id}:${i}`);
+      client.emit(`${base}/chunk`, `${id}:${i}:${b64(z.subarray(i * CHUNK, (i + 1) * CHUNK))}`);
+      await acked;
+      $('prog').value = i + 1;
+    }
+    $('sendInfo').textContent = 'sent. the panel is refreshing, give it about 38 seconds.';
+    log(`image sent, ${Math.round(z.length / 1024)} kb`, 'ok');
+  } catch (e) {
+    $('sendInfo').textContent = `send failed: ${e.message}`;
+    log(`send failed: ${e.message}`, 'bad');
+  }
+  sending = false;
+  $('prog').hidden = true;
+  controls(!!state);
+}
+
+// ---- wiring ----
+
+$('connect').addEventListener('click', connect);
+$('key').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+$('apps').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b && !b.disabled) act('app', b.dataset.app, `show ${b.textContent}`);
+});
+SLIDES.forEach((name, i) => {
+  const b = document.createElement('button');
+  b.disabled = true;
+  b.setAttribute('aria-pressed', 'false');
+  b.setAttribute('aria-label', `show slide ${i + 1}`);
+  const img = document.createElement('img');
+  img.src = `slides/${name}.png`;
+  img.alt = `slide ${i + 1}`;
+  b.append(img);
+  b.addEventListener('click', async () => {
+    if (state.app !== 'capsule') await act('app', 'capsule', 'show capsule slides');
+    act('next', i - state.slide || 0, `go to slide ${i + 1}`);
+  });
+  $('thumbs').append(b);
+});
+$('hold').addEventListener('change', () => act('hold', Number($('hold').value), `hold ${$('hold').value} s`));
+$('next').addEventListener('click', () => act('next', 1, 'next slide'));
+$('prev').addEventListener('click', () => act('next', -1, 'previous slide'));
+$('ledSet').addEventListener('click', () => {
+  const v = parseInt($('led').value.slice(1), 16), k = Number($('bright').value) / 255;
+  act('led', [Math.round((v >> 16) * k), Math.round(((v >> 8) & 255) * k), Math.round((v & 255) * k)], 'leds set');
+});
+$('ledOff').addEventListener('click', () => act('led', [0, 0, 0], 'leds off'));
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mode = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('tabText').hidden = mode !== 'text';
+  $('tabImage').hidden = mode !== 'image';
+  compose();
+});
+['msg', 'txtColor', 'fit', 'useRed'].forEach(id => $(id).addEventListener('input', compose));
+$('file').addEventListener('change', async () => {
+  const f = $('file').files[0];
+  if (!f) return;
+  try { sourceImage = await createImageBitmap(f); compose(); }
+  catch (e) { log('that file would not open as an image', 'bad'); }
+});
+$('send').addEventListener('click', sendImage);
+try { $('key').value = localStorage.getItem(KEY_STORE) || ''; } catch (e) {}
+document.fonts.load('80px "Permanent Marker"').then(compose, compose);
+compose();
+</script>
+</body>
+</html>

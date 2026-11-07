@@ -1,0 +1,253 @@
+"""Connects the badge to WiFi and the CLASP relay, and takes signed commands from the web controller.
+
+The relay is public, so every command carries an HMAC of its JSON made with the badge key and a
+one time nonce the badge publishes in its state. Images arrive as chunks after a signed start
+message holding their SHA-256, so an unsigned chunk can only make a transfer fail.
+"""
+import asyncio as aio
+import binascii
+import gc
+import hashlib
+import json
+import os
+import sys
+import time
+
+import network
+
+from lib import hb_state
+from lib.board import reg_in_v_sns
+from lib.hb_clasp import Clasp
+from lib.led_bar import leds
+
+CHUNK_LIMIT = 400000
+STATE_EVERY_S = 30
+PING_EVERY_S = 15
+
+
+def _hmac(key, msg):
+    block = key + b"\0" * (64 - len(key))
+    inner = hashlib.sha256(bytes(b ^ 0x36 for b in block))
+    inner.update(msg)
+    outer = hashlib.sha256(bytes(b ^ 0x5C for b in block))
+    outer.update(inner.digest())
+    return outer.digest()
+
+
+def _hex(b):
+    return binascii.hexlify(b).decode()
+
+
+class Link:
+    def __init__(self, switcher):
+        self.switcher = switcher
+        self.key = hb_state.config["key"].encode()
+        self.room = _hex(hashlib.sha256(self.key).digest())[:16]
+        self.base = "/hb/badge/" + self.room
+        self.nonce = _hex(os.urandom(8))
+        self.client = None
+        self.outbox = []
+        self.transfer = None
+        self.started = time.time()
+        self.sta = network.WLAN(network.STA_IF)
+
+    def goto(self, app):
+        """Switches app the way the menu does, including when the menu is open."""
+        names = {"logo": "hack.build", "capsule": "Capsule", "image": "Sent"}
+        sw = self.switcher
+        for i, a in enumerate(sw.apps):
+            if a.name == names.get(app):
+                if sw.selecting_mode or sw.active_idx != i:
+                    leds.clear_sequence()
+                    leds.fill((0, 0, 0))
+                # The switcher clears launched just after an await, which would lose a remote
+                # switch, so these apps also take a request flag the switcher never touches.
+                a.request = True
+                sw.selection_idx = i
+                sw.active_idx = i
+                sw.selecting_mode = False
+                return True
+        return False
+
+    def on_message(self, address, value):
+        if not isinstance(value, str):
+            return
+        if address == self.base + "/cmd":
+            self.on_command(value)
+        elif address == self.base + "/chunk":
+            self.on_chunk(value)
+
+    def on_command(self, envelope):
+        sig, _, body = envelope.partition(":")
+        if _hex(_hmac(self.key, body.encode())) != sig:
+            print("hb_link: bad signature")
+            return
+        msg = json.loads(body)
+        if msg.get("n") != self.nonce:
+            print("hb_link: stale nonce")
+            return
+        self.nonce = _hex(os.urandom(8))
+        hb_state.changed()
+        self.apply(msg.get("c"), msg.get("v"))
+
+    def apply(self, cmd, val):
+        print("hb_link: command", cmd)
+        if cmd == "app":
+            self.goto(val)
+        elif cmd == "next":
+            from apps.b_capsule import CapsuleApp
+            self.goto("capsule") if hb_state.status["app"] != "capsule" else None
+            if CapsuleApp._instance:
+                CapsuleApp._instance.skip(int(val or 1))
+        elif cmd == "hold":
+            hb_state.config["hold"] = max(5, min(3600, int(val)))
+            hb_state.save()
+        elif cmd == "led":
+            leds.clear_sequence()
+            leds.fill(tuple(max(0, min(32, int(c))) for c in val))
+        elif cmd == "img":
+            size = int(val["size"])
+            if size > CHUNK_LIMIT:
+                self.fail("image too large")
+                return
+            gc.collect()
+            self.transfer = {"id": val["id"], "size": size, "sha": val["sha"], "next": 0,
+                             "got": 0, "buf": bytearray(size)}
+            self.send("/ack", val["id"] + ":-1")
+
+    def fail(self, why):
+        print("hb_link:", why)
+        hb_state.status["err"] = why
+        hb_state.changed()
+
+    def on_chunk(self, value):
+        t = self.transfer
+        if not t:
+            return
+        tid, seq, data = value.split(":", 2)
+        if tid != t["id"] or int(seq) != t["next"]:
+            return
+        raw = binascii.a2b_base64(data)
+        if t["got"] + len(raw) > t["size"]:
+            self.transfer = None
+            self.fail("image overran its size")
+            return
+        t["buf"][t["got"]:t["got"] + len(raw)] = raw
+        t["got"] += len(raw)
+        t["next"] += 1
+        self.send("/ack", tid + ":" + seq)
+        if t["got"] == t["size"]:
+            self.finish()
+
+    def finish(self):
+        t = self.transfer
+        self.transfer = None
+        if _hex(hashlib.sha256(t["buf"]).digest()) != t["sha"]:
+            self.fail("image failed its checksum")
+            return
+        with open(hb_state.SENT_PATH, "wb") as f:
+            f.write(t["buf"])
+        del t
+        gc.collect()
+        hb_state.status["err"] = ""
+        hb_state.config["has_image"] = True
+        self.goto("image")
+
+    def send(self, suffix, text):
+        self.outbox.append((suffix, text))
+
+    def state_json(self):
+        s = hb_state.status
+        s["ip"] = self.sta.ifconfig()[0] if self.sta.isconnected() else ""
+        try:
+            s["rssi"] = self.sta.status("rssi")
+        except (OSError, ValueError):
+            s["rssi"] = 0
+        return json.dumps({
+            "n": self.nonce, "app": s["app"], "slide": s["slide"], "slides": s["slides"],
+            "hold": hb_state.config["hold"], "busy": not hb_state.panel_idle(),
+            "ip": s["ip"], "rssi": s["rssi"], "err": s["err"],
+            "vin": round(reg_in_v_sns.read_uv() * 2 / 1000000, 2),
+            "up": time.time() - self.started, "mem": gc.mem_free(),
+        })
+
+    async def wifi(self):
+        cfg = hb_state.config
+        if self.sta.isconnected():
+            return True
+        hb_state.status["err"] = "joining wifi"
+        self.sta.active(True)
+        try:
+            self.sta.config(pm=self.sta.PM_NONE)
+        except (OSError, ValueError, AttributeError):
+            pass
+        self.sta.connect(cfg["ssid"], cfg["password"])
+        for _ in range(40):
+            if self.sta.isconnected():
+                hb_state.status["err"] = ""
+                print("hb_link: wifi", self.sta.ifconfig()[0])
+                return True
+            await aio.sleep_ms(500)
+        print("hb_link: wifi failed", self.sta.status())
+        self.sta.disconnect()
+        return False
+
+    async def writer(self):
+        """Sends queued messages, state on change and keepalives. Raises when the link drops."""
+        last_state = last_ping = 0
+        was_busy = None
+        while True:
+            now = time.time()
+            busy = not hb_state.panel_idle()
+            if hb_state.take_dirty() or busy != was_busy or now - last_state >= STATE_EVERY_S:
+                was_busy = busy
+                last_state = now
+                await self.client.set(self.base + "/state", self.state_json())
+            if now - last_ping >= PING_EVERY_S:
+                last_ping = now
+                await self.client.ping()
+            while self.outbox:
+                suffix, text = self.outbox.pop(0)
+                await self.client.emit(self.base + suffix, text)
+            await aio.sleep_ms(100)
+
+    async def session(self):
+        self.client = Clasp(hb_state.config["relay"], "hack.build badge")
+        self.client.on_message = self.on_message
+        await self.client.connect()
+        print("hb_link: on relay as", self.base)
+        await self.client.subscribe(self.base + "/cmd", 1)
+        await self.client.subscribe(self.base + "/chunk", 2)
+        hb_state.changed()
+        writer = aio.create_task(self.writer())
+        try:
+            await self.client.run()
+        finally:
+            writer.cancel()
+            self.client.close()
+
+    async def run(self):
+        if not hb_state.config["ssid"] or not self.key:
+            print("hb_link: no wifi or key in config, staying offline")
+            return
+        wait = 2
+        while True:
+            try:
+                if await self.wifi():
+                    wait = 2
+                    await self.session()
+            except Exception as ex:
+                print("hb_link: session ended")
+                sys.print_exception(ex)
+            self.transfer = None
+            gc.collect()
+            await aio.sleep(wait)
+            wait = min(wait * 2, 60)
+
+
+def start(switcher):
+    """Opens the main app and starts the remote link. Called once from main.py."""
+    link = Link(switcher)
+    link.goto("logo")
+    aio.create_task(link.run())
+    return link

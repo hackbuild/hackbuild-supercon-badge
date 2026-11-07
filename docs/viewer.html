@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Badge Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pink:#FE0386;--paper:#f5f0e6;--card:#fffdf7;--ink:#1a1a1a;--void:#0a0a0a;--ink3:#6b6459;--film:#e6e2d6;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:13px/1.4 var(--mono)}
+button,select,input{font:inherit;color:inherit;border-radius:0}
+button{background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:var(--s2) var(--s3);cursor:pointer;box-shadow:3px 3px 0 var(--ink3)}
+button.quiet{background:var(--card);color:var(--ink);box-shadow:none}
+button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+input,select{background:var(--card);border:2px solid var(--ink);padding:var(--s1) var(--s2)}
+header{background:var(--ink);color:var(--paper);display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);align-items:center;padding:var(--s2) var(--s4)}
+h1{font:26px var(--disp);margin:0}
+header p{font:14px var(--type);margin:0;opacity:.8;flex:1;min-width:180px}
+header a{color:var(--paper)}
+main{max-width:1120px;margin:0 auto;padding:var(--s4);display:grid;gap:var(--s4);grid-template-columns:minmax(0,1fr) 260px;align-items:start}
+.panel{background:var(--card);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s3) var(--s4);min-width:0}
+h2{font:20px var(--inst);text-transform:uppercase;letter-spacing:.06em;margin:0 0 var(--s2);border-bottom:1px dashed var(--ink3)}
+.hint{font:13px var(--type);color:var(--ink3);margin:var(--s2) 0 0}
+#badge{background:var(--void);padding:var(--s3);min-width:0}
+#leds{display:flex;justify-content:center;gap:var(--s3);padding:var(--s1) 0 var(--s3)}
+#leds i{width:12px;height:12px;background:#222;display:block}
+#screen{position:relative;line-height:0;background:var(--film)}
+#screen img{width:100%;height:auto;display:block;image-rendering:auto}
+body.film #screen img{mix-blend-mode:multiply}
+#flash{position:absolute;inset:0;background:var(--void);opacity:0}
+#btns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2);padding-top:var(--s3)}
+#btns button{background:#222;color:var(--paper);border-color:#555;box-shadow:none;padding:var(--s2) var(--s1)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:center;margin:var(--s2) 0}
+.list{display:grid;gap:var(--s1)}
+.list button{text-align:left;box-shadow:none}
+@media (max-width:760px){main{grid-template-columns:minmax(0,1fr);padding:var(--s3)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>badge viewer</h1>
+  <p>the exact files the badge draws, in the three colors it has.</p>
+  <a href="index.html">control the badge</a>
+</header>
+<main>
+  <div id="badge">
+    <div id="leds" aria-label="led bar"></div>
+    <div id="screen"><img id="img" alt="badge screen"><div id="flash"></div></div>
+    <div id="btns">
+      <button id="menuMinus">menu -</button>
+      <button id="menuPlus">menu +</button>
+      <button id="userA">user a</button>
+      <button id="userB">user b</button>
+    </div>
+  </div>
+  <div style="display:grid;gap:var(--s4);min-width:0">
+    <section class="panel">
+      <h2>screens</h2>
+      <div class="list" id="list"></div>
+    </section>
+    <section class="panel">
+      <h2>playback</h2>
+      <div class="row">
+        <label for="hold">hold, seconds</label>
+        <input id="hold" type="number" min="1" max="600" value="4" style="width:70px">
+      </div>
+      <div class="row">
+        <label for="timing">refresh</label>
+        <select id="timing">
+          <option value="1.2">short, 1.2 s</option>
+          <option value="38">real, 38 s</option>
+          <option value="0">none</option>
+        </select>
+      </div>
+      <button id="play" aria-pressed="true">pause slides</button>
+      <p class="hint">real timing is measured on this badge: 5.3 s to send, 32.6 s to refresh. the badge default hold is 15 s.</p>
+    </section>
+    <section class="panel">
+      <h2>on the badge</h2>
+      <p class="hint" id="help"></p>
+    </section>
+  </div>
+</main>
+<script>
+const SCREENS = [
+  { id: 'logo', name: 'hack.build', file: 'slides/logo.png', app: 0 },
+  { id: 's1', name: 'slide 1, the machine', file: 'slides/s1.png', app: 1 },
+  { id: 's2', name: 'slide 2, get a coin', file: 'slides/s2.png', app: 1 },
+  { id: 's3', name: 'slide 3, tap it', file: 'slides/s3.png', app: 1 },
+  { id: 's4', name: 'slide 4, the rotor', file: 'slides/s4.png', app: 1 },
+  { id: 's5', name: 'slide 5, grab it', file: 'slides/s5.png', app: 1 },
+  { id: 's6', name: 'slide 6, ask me', file: 'slides/s6.png', app: 1 },
+];
+const APPS = ['hack.build', 'Capsule', 'Sent', 'Gallery', 'Nametag', 'Workshops', 'Sat Talks', 'Sun Talks'];
+const SLIDES = SCREENS.filter(s => s.app === 1);
+const $ = id => document.getElementById(id);
+const LED_ON = '#ff2020';
+let shown = SCREENS[0], menu = false, sel = 0, active = 0, timer = null, playing = true, token = 0;
+
+for (let i = 0; i < 8; i++) $('leds').append(document.createElement('i'));
+function ledBar(fn) { [...$('leds').children].forEach((l, i) => { l.style.background = fn(i) || '#222'; }); }
+
+function help() {
+  $('help').textContent = menu
+    ? `menu open on ${APPS[sel]}. menu +/- moves the bright led, user a or b opens it.`
+    : active === 1
+      ? 'user a shows the next slide, user b the previous one. menu +/- opens the menu.'
+      : 'menu +/- opens the menu.';
+}
+
+function leds() {
+  if (menu) { ledBar(i => (i === sel ? '#ffe8c8' : i < APPS.length ? '#a05a10' : '#222')); return; }
+  if (active === 1) { const n = SLIDES.indexOf(shown); ledBar(i => (Math.floor(i * SLIDES.length / 8) === n ? LED_ON : '')); return; }
+  ledBar(() => '');
+}
+
+// E-paper redraws by driving the whole film dark and light a few times before the image settles.
+async function refresh(screen) {
+  const me = ++token;
+  const seconds = Number($('timing').value);
+  shown = screen;
+  document.querySelectorAll('#list button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === screen.id)));
+  leds();
+  if (!seconds) { $('img').src = screen.file; return; }
+  const flash = $('flash'), steps = 6, step = seconds * 1000 / steps;
+  for (let i = 0; i < steps; i++) {
+    if (me !== token) return;
+    flash.style.background = i % 2 ? '#ffffff' : '#0a0a0a';
+    flash.style.opacity = 1;
+    if (i === steps - 2) $('img').src = screen.file;
+    await new Promise(r => setTimeout(r, step));
+  }
+  if (me === token) flash.style.opacity = 0;
+}
+
+async function show(screen) { clearTimeout(timer); await refresh(screen); schedule(); }
+
+function schedule() {
+  clearTimeout(timer);
+  if (!playing || menu || active !== 1) return;
+  timer = setTimeout(() => step(1), Number($('hold').value) * 1000);
+}
+
+function step(d) {
+  const i = (SLIDES.indexOf(shown) + d + SLIDES.length) % SLIDES.length;
+  show(SLIDES[Math.max(i, 0)]);
+}
+
+function openApp(i) {
+  active = i;
+  menu = false;
+  if (i === 0) show(SCREENS[0]);
+  else if (i === 1) show(SLIDES[0]);
+  else { $('help').textContent = ''; leds(); }
+  help();
+}
+
+function menuMove(d) {
+  if (!menu) { menu = true; sel = active; clearTimeout(timer); }
+  else sel = (sel + d + APPS.length) % APPS.length;
+  leds();
+  help();
+}
+
+function user(d) {
+  if (menu) { if (sel <= 1) openApp(sel); return; }
+  if (active === 1) step(d);
+}
+
+$('menuMinus').addEventListener('click', () => menuMove(-1));
+$('menuPlus').addEventListener('click', () => menuMove(1));
+$('userA').addEventListener('click', () => user(1));
+$('userB').addEventListener('click', () => user(-1));
+$('play').addEventListener('click', () => {
+  playing = !playing;
+  $('play').textContent = playing ? 'pause slides' : 'play slides';
+  $('play').setAttribute('aria-pressed', String(playing));
+  schedule();
+});
+$('hold').addEventListener('change', schedule);
+SCREENS.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'quiet';
+  b.dataset.id = s.id;
+  b.textContent = s.name;
+  b.setAttribute('aria-pressed', 'false');
+  b.addEventListener('click', () => {
+    active = s.app;
+    menu = false;
+    help();
+    show(s);
+  });
+  $('list').append(b);
+});
+$('img').src = SCREENS[0].file;
+active = 1;
+show(SLIDES[0]);
+help();
+</script>
+</body>
+</html>
