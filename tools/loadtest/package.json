@@ -1,0 +1,10 @@
+{
+  "name": "hackbuild-badge-loadtest",
+  "private": true,
+  "type": "module",
+  "author": "Moheeb Zara <hackbuildvideo@gmail.com>",
+  "description": "Simulated phones for the badge crowd games",
+  "dependencies": {
+    "@clasp-to/core": "4.3.1"
+  }
+}

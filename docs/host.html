@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crowd Games Host</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --pink:#FE0386;--paper:#f5f0e6;--raised:#fffdf7;--sunk:#efe9db;--ink:#1a1a1a;--ink2:#444;--ink3:#6b6459;--void:#0a0a0a;
+  --err:#c3251f;--ok:#1f7a3a;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--tap:44px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--mono)}
+button,input,select{font:inherit;color:inherit;border-radius:0}
+button{cursor:pointer;min-height:var(--tap)}
+button:disabled{cursor:not-allowed}
+a{color:inherit}
+[hidden]{display:none !important}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+input,select{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);width:100%;min-width:0;min-height:var(--tap)}
+label{display:block;font-weight:600;font-size:13px;margin-bottom:var(--s1)}
+.prose{font:15px/1.4 var(--type);color:var(--ink2);margin:var(--s2) 0 0;max-width:62ch}
+.btn{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s4);font-weight:600}
+.btn:hover:not(:disabled){background:var(--sunk)}
+.btn:active:not(:disabled){transform:translate(2px,2px)}
+.btn:disabled{color:var(--ink3);border-color:var(--ink3);background:var(--sunk)}
+.go{background:var(--ink);color:var(--raised);box-shadow:3px 3px 0 var(--ink3);width:100%;padding:var(--s3) var(--s4);font-size:16px}
+.go:hover:not(:disabled){background:var(--ink);box-shadow:3px 3px 0 var(--ink)}
+.wide{width:100%}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+
+#gate{max-width:480px;margin:0 auto;padding:var(--s6) var(--s4)}
+#gate h1{font:40px/1.05 var(--disp);margin:0 0 var(--s2)}
+#gateMsg{min-height:44px;margin-top:var(--s3);color:var(--err);font-weight:600}
+
+#app{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,1fr);gap:var(--s5);max-width:1200px;margin:0 auto;padding:var(--s4);align-items:start}
+#left{position:sticky;top:var(--s4);min-width:0}
+#right{min-width:0;display:grid;gap:var(--s5)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s3)}
+.top h1{font:26px var(--disp);margin:0}
+.top a{font-size:13px;min-height:var(--tap);display:inline-flex;align-items:center}
+
+#badge{background:var(--void);padding:var(--s3);box-shadow:5px 5px 0 var(--pink)}
+#frame{width:100%;height:auto;display:block;background:#fff}
+#say{color:var(--raised);font:24px/1.15 var(--inst);padding:var(--s3) 0 0;min-height:52px}
+#say.bad{color:#ff8a80}
+.lights{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin-top:var(--s3);font-size:13px}
+.lights span{display:inline-flex;align-items:center;gap:var(--s2)}
+.lights i{width:10px;height:10px;border-radius:50%;background:var(--ink3);display:inline-block}
+.lights i.on{background:var(--ok)}
+.lights i.bad{background:var(--err)}
+
+h2{font:22px/1.1 var(--disp);margin:0 0 var(--s3)}
+section.card{border-top:2px solid var(--ink);padding-top:var(--s3)}
+#join{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s4);align-items:center}
+#joinQr{width:132px;height:132px;background:#fff;border:2px solid var(--ink);image-rendering:pixelated}
+#roomCode{font:56px/1 var(--inst);letter-spacing:.08em}
+#joinUrl{font-size:12px;overflow-wrap:anywhere;color:var(--ink2)}
+
+#games{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+#games button{text-align:left;background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);min-height:72px}
+#games button b{display:block;font-size:15px}
+#games button span{font-size:12px;color:var(--ink2)}
+#games button[aria-pressed=true]{background:var(--ink);color:var(--raised)}
+#games button[aria-pressed=true] span{color:var(--sunk)}
+#stop{margin-top:var(--s2)}
+
+#controls{display:grid;gap:var(--s2)}
+.stat{font:28px/1 var(--inst)}
+.row{display:flex;justify-content:space-between;gap:var(--s3);align-items:center;font-size:13px;min-height:28px}
+#people{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
+#people li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;font-size:14px}
+#people li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#people button{min-height:36px;padding:0 var(--s3);font-size:12px}
+details{border-top:2px solid var(--ink);padding-top:var(--s2)}
+summary{cursor:pointer;font-weight:600;min-height:var(--tap);display:flex;align-items:center}
+.settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);margin-top:var(--s2)}
+.switch{display:flex;gap:var(--s3);align-items:center;font-weight:600;font-size:14px;min-height:var(--tap)}
+.switch input{width:24px;height:24px;min-height:0;accent-color:var(--ink)}
+
+@media (max-width:820px){
+  #app{grid-template-columns:minmax(0,1fr);padding:var(--s3);gap:var(--s4)}
+  #left{position:static}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+
+<main id="gate">
+  <h1>host crowd games</h1>
+  <p class="prose">this page runs the games and draws the badge. keep it open with the screen on while people play. paste the badge key to start. it stays in this browser.</p>
+  <form id="gateForm" style="margin-top:var(--s4)">
+    <label for="key">badge key</label>
+    <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="hb-...">
+    <button id="connect" class="btn go" type="submit" style="margin-top:var(--s3)">start hosting</button>
+  </form>
+  <p id="gateMsg" role="alert"></p>
+  <p class="prose"><a href="index.html">badge control</a> for the logo, slides and messages.</p>
+</main>
+
+<div id="app" hidden>
+  <section id="left" aria-label="the badge">
+    <div class="top">
+      <h1>crowd games</h1>
+      <a href="index.html">badge control</a>
+    </div>
+    <div id="badge">
+      <canvas id="frame" width="960" height="672" aria-label="the last screen sent to the badge"></canvas>
+      <div id="say" role="status" aria-live="polite">starting.</div>
+    </div>
+    <div class="lights" aria-label="connections">
+      <span><i id="lRelay"></i>relay</span>
+      <span><i id="lBadge"></i>badge</span>
+      <span><i id="lWake"></i>screen stays on</span>
+      <span><b id="nPlayers">0</b>&nbsp;phones</span>
+    </div>
+  </section>
+
+  <section id="right" aria-label="host controls">
+    <section class="card" aria-labelledby="joinH">
+      <h2 id="joinH">people join here</h2>
+      <div id="join">
+        <canvas id="joinQr" width="132" height="132" aria-label="qr code for the join link"></canvas>
+        <div>
+          <div id="roomCode">----</div>
+          <div id="joinUrl"></div>
+          <button id="copy" class="btn" style="margin-top:var(--s2)">copy the link</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="gameH">
+      <h2 id="gameH">game</h2>
+      <div id="games" role="group" aria-label="pick a game"></div>
+      <button id="stop" class="btn wide">stop games, show the logo</button>
+    </section>
+
+    <section class="card" aria-labelledby="nowH" id="nowCard" hidden>
+      <h2 id="nowH">now</h2>
+      <div id="controls"></div>
+    </section>
+
+    <section class="card" aria-labelledby="peopleH">
+      <h2 id="peopleH">top players</h2>
+      <ul id="people"><li><span>nobody has scored yet.</span></li></ul>
+      <p class="prose">remove takes a player out of the games and off the leaderboard.</p>
+    </section>
+
+    <details>
+      <summary>timing and badge output</summary>
+      <label class="switch"><input type="checkbox" id="output" checked> send screens to the badge</label>
+      <div class="settings" id="settings"></div>
+      <button id="forget" class="btn wide" style="margin-top:var(--s4)">stop hosting and forget the key</button>
+    </details>
+  </section>
+</div>
+
+<script type="module">
+import { Relay, hash32 } from './lib/relay.js';
+import { Badge, hex, zlib } from './lib/badge.js';
+import * as G from './lib/games.js';
+
+const KEY_STORE = 'hackbuild-badge.key';
+const SAVE_STORE = 'hb.host.room';
+const PUBLIC_PLAY = 'https://hackbuild.github.io/hackbuild-supercon-badge/play';
+// Served from this computer, the join link points here too, so a test needs no publish.
+const PLAY = location.hostname.endsWith('github.io') ? PUBLIC_PLAY : new URL('play.html', location.href).href;
+const te = new TextEncoder();
+const $ = id => document.getElementById(id);
+
+let relay, badge, room, P = '', roomCode = '', joinUrl = '';
+let seen = new Map(), lastYou = new Map(), dirty = true, boardDirty = true, saveDirty = true;
+let lastView = 0, lastBoard = 0, lastBeat = 0, wake = null;
+let pushing = false, lastKey = '', lastPushAt = 0, pushError = '', nextPushAt = 0;
+const badgeInfo = { shownKey: '', nextMs: null };
+const fctx = $('frame').getContext('2d');
+
+function say(text, bad = false) { $('say').textContent = text; $('say').className = bad ? 'bad' : ''; }
+
+// ---- room ----
+
+function load() {
+  try {
+    const r = JSON.parse(localStorage.getItem(SAVE_STORE));
+    if (r && r.v === G.PROTOCOL) {
+      r.cfg = { ...structuredClone(G.DEFAULTS), ...r.cfg };
+      for (const k of Object.keys(G.DEFAULTS)) r.cfg[k] = { ...G.DEFAULTS[k], ...r.cfg[k] };
+      return r;
+    }
+  } catch (e) { /* a broken save starts a fresh room */ }
+  return G.newRoom();
+}
+
+function save() {
+  saveDirty = false;
+  try { localStorage.setItem(SAVE_STORE, JSON.stringify(room)); } catch (e) { /* storage full or blocked */ }
+}
+
+function players(now) {
+  let n = 0;
+  for (const [pid, t] of seen) { if (now - t < 45_000) n++; else if (now - t > 600_000) seen.delete(pid); }
+  return n;
+}
+
+function setYou(pid, you, key) {
+  if (key) lastYou.set(pid, key);
+  relay.set(`${P}/you/${pid}`, JSON.stringify({ e: room.epoch, ...you }));
+}
+
+function youKey(pid) {
+  const g = room.g;
+  if (!g) return 'none';
+  if (room.kind === 'hill') { const v = g.votes[pid]; return `${room.epoch}.${g.round}.${g.phase}.${v ? v.n : 0}`; }
+  if (room.kind === 'pixel') return `${room.epoch}.ink`;
+  return `${room.epoch}`;
+}
+
+function youFor(pid, now) {
+  if (room.kind === 'hill') return G.hillYou(room, pid);
+  if (room.kind === 'pixel') return G.pixelYou(room, pid, now);
+  return {};
+}
+
+// A phone that has not heard its part of this phase gets it when it next checks in.
+function refreshYou(pid, now) {
+  if (!room.g) return;
+  const k = youKey(pid);
+  if (lastYou.get(pid) === k) return;
+  setYou(pid, youFor(pid, now), k);
+}
+
+function onInput(value, address) {
+  const pid = address.slice(address.lastIndexOf('/') + 1);
+  if (!/^[A-Z0-9]{6,16}$/.test(pid)) return;
+  let msg;
+  try { msg = JSON.parse(value); } catch (e) { return; }
+  const now = Date.now();
+  seen.set(pid, now);
+  const r = G.input(room, pid, msg, now);
+  if (!r) return;
+  saveDirty = true;
+  boardDirty = true;
+  if (r.changed) dirty = true;
+  if (r.you) setYou(pid, r.you, youKey(pid));
+}
+
+function onWho(value, address) {
+  const pid = address.slice(address.lastIndexOf('/') + 1);
+  let name = G.clean(value, 16).toLowerCase();
+  if (!name || G.blocked(name)) name = `player ${pid.slice(0, 3).toLowerCase()}`;
+  if (room.names[pid] !== name) { room.names[pid] = name; saveDirty = true; boardDirty = true; }
+}
+
+function onBeat(value) {
+  const pid = G.clean(value, 16);
+  if (!/^[A-Z0-9]{6,16}$/.test(pid)) return;
+  const now = Date.now();
+  seen.set(pid, now);
+  refreshYou(pid, now);
+}
+
+// ---- the loop ----
+
+function publish(now) {
+  const n = players(now);
+  if (dirty || now - lastView > 20_000) {
+    // Each view goes to every phone, so a big room gets them half as often.
+    if (now - lastView >= (n > 60 ? 500 : 250)) {
+      const v = G.view(room, now, n, badgeInfo);
+      if (relay.set(`${P}/view`, JSON.stringify(v))) { dirty = false; lastView = now; }
+    }
+  }
+  if ((boardDirty && now - lastBoard > 5000) || now - lastBoard > 60_000) {
+    const board = {};
+    for (const [pid, s] of Object.entries(room.scores)) if (!room.banned[pid]) board[pid] = s;
+    if (relay.set(`${P}/board`, JSON.stringify({ e: room.epoch, s: board }))) { boardDirty = false; lastBoard = now; }
+  }
+  if (now - lastBeat > 5000) { relay.emit(`${P}/hb`, room.epoch); lastBeat = now; }
+  $('nPlayers').textContent = n;
+}
+
+async function pushBadge(now) {
+  if (!$('output').checked || !room.g || pushing || !badge.online || badge.busy || now < nextPushAt) return;
+  const key = G.badgeKey(room);
+  if (key === lastKey) return;
+  if (room.kind === 'pixel' && lastKey.startsWith('pixel.') && now - lastPushAt < room.cfg.pixel.batchS * 1000) {
+    badgeInfo.nextMs = room.cfg.pixel.batchS * 1000 - (now - lastPushAt);
+    return;
+  }
+  pushing = true;
+  const kind = room.kind;
+  try {
+    G.drawBadge(fctx, room, joinUrl, roomCode, now);
+    const cells = room.g.cells;
+    const z = await zlib(G.toPlanes(fctx));
+    say(`sending ${(z.length / 1024).toFixed(1)} kb to the badge.`);
+    await badge.sendScreen(z, false);
+    say('the badge is drawing.');
+    await badge.waitDrawn();
+    lastKey = key;
+    lastPushAt = Date.now();
+    pushError = '';
+    badgeInfo.shownKey = key;
+    if (kind === 'pixel' && room.kind === 'pixel') { room.g.shown = cells; badgeInfo.nextMs = room.cfg.pixel.batchS * 1000; }
+    dirty = true;
+    say(badgeLine());
+  } catch (e) {
+    pushError = e.message;
+    nextPushAt = Date.now() + 5000;
+    say(`badge send failed. ${e.message} trying again in 5 s.`, true);
+  }
+  pushing = false;
+}
+
+function badgeLine() {
+  if (!room.g) return 'no game running.';
+  const s = badge.state;
+  const took = s && s.fast_ms ? `, ${(s.fast_ms / 1000).toFixed(1)} s to draw` : '';
+  return `badge shows ${G.GAME_LIST.find(g => g.id === room.kind).name}${took}.`;
+}
+
+function loop() {
+  const now = Date.now();
+  if (room.g) {
+    if (room.kind === 'snake' && G.snakeLopsided(room, now)) room.g.until = now;
+    if (G.tick(room, now, badgeInfo)) { dirty = saveDirty = boardDirty = true; }
+  }
+  publish(now);
+  pushBadge(now);
+  if (saveDirty) save();
+  renderNow(now);
+}
+
+// ---- screen keeping ----
+
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wake) {
+      wake = await navigator.wakeLock.request('screen');
+      wake.addEventListener('release', () => { wake = null; lights(); });
+    }
+  } catch (e) { wake = null; }
+  lights();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { keepAwake(); dirty = true; }
+  else save();
+});
+addEventListener('pagehide', save);
+
+function lights() {
+  $('lRelay').className = relay && relay.up ? 'on' : 'bad';
+  $('lBadge').className = badge && badge.online ? 'on' : 'bad';
+  $('lWake').className = wake ? 'on' : '';
+}
+
+// ---- controls ----
+
+function renderGames() {
+  $('games').innerHTML = '';
+  for (const g of G.GAME_LIST) {
+    const b = document.createElement('button');
+    b.setAttribute('aria-pressed', String(room.kind === g.id));
+    b.innerHTML = `<b></b><span></span>`;
+    b.querySelector('b').textContent = g.name;
+    b.querySelector('span').textContent = g.blurb;
+    b.addEventListener('click', () => start(g.id));
+    $('games').append(b);
+  }
+  $('nowCard').hidden = !room.kind;
+  renderSettings();
+}
+
+async function start(kind) {
+  if (room.kind === kind && room.g) return;
+  G.startGame(room, kind, Date.now());
+  lastYou.clear();
+  lastKey = '';
+  nextPushAt = 0;
+  dirty = boardDirty = saveDirty = true;
+  renderGames();
+  buildControls();
+  if (badge.online) badge.command('quality', 'fast').catch(() => {});
+  say(`starting ${G.GAME_LIST.find(g => g.id === kind).name}.`);
+}
+
+async function stop() {
+  room.kind = null;
+  room.g = null;
+  room.epoch = G.newRoom().epoch;
+  dirty = saveDirty = true;
+  lastKey = '';
+  renderGames();
+  say('games stopped. showing the logo.');
+  try { await badge.command('app', 'logo'); } catch (e) { say(`could not reach the badge. ${e.message}`, true); }
+}
+
+function btn(text, fn) {
+  const b = document.createElement('button');
+  b.className = 'btn wide';
+  b.textContent = text;
+  b.addEventListener('click', () => { fn(); dirty = saveDirty = true; renderNow(Date.now()); });
+  return b;
+}
+
+function buildControls() {
+  const c = $('controls');
+  c.innerHTML = '';
+  const live = document.createElement('div');
+  live.id = 'live';
+  c.append(live);
+  if (room.kind === 'pixel') {
+    c.append(btn('next prompt', () => { room.g.promptAt = 0; }));
+    c.append(btn('wipe the canvas', () => { room.g.cells = '0'.repeat(G.PIX_C * G.PIX_R); lastPushAt = 0; }));
+  } else if (room.kind === 'hill') {
+    c.append(btn('end this phase now', () => { room.g.until = 0; }));
+    c.append(btn('knock the quip off the hill', () => { G.hillVeto(room, Date.now()); }));
+  } else if (room.kind === 'snipe') {
+    c.append(btn('next code now', () => { if (room.g.live) room.g.until = 0; }));
+  } else if (room.kind === 'snake') {
+    c.append(btn('restart the snake', () => { room.g.over = true; room.g.overTurns = 1; room.g.until = 0; }));
+  }
+}
+
+function renderNow(now) {
+  const box = $('live');
+  if (!box || !room.g) return;
+  const g = room.g, left = g.until ? Math.max(0, Math.ceil((g.until - now) / 1000)) : 0;
+  let rows = [];
+  if (room.kind === 'pixel') rows = [['prompt', G.PIXEL_PROMPTS[g.prompt]], ['painters', Object.keys(g.painters).length], ['next badge print', pushing ? 'sending' : badgeInfo.nextMs != null ? `about ${Math.max(0, Math.ceil((room.cfg.pixel.batchS * 1000 - (now - lastPushAt)) / 1000))} s` : 'after the first paint']];
+  if (room.kind === 'hill') rows = [['round', g.round], ['phase', `${g.phase}, ${left} s left`], ['answers', g.subs.length], ['on the hill', `${g.champ.text}, by ${g.champ.name}`]];
+  if (room.kind === 'snipe') rows = [['round', g.round], ['code', g.live ? `${g.code}, live, ${left} s left` : 'waiting for the badge to draw it'], ['claims', g.claims.length]];
+  if (room.kind === 'snake') rows = [['turn', `${g.turn}, ${left} s left`], ['score', `${g.score}, best ${g.best}`], ['votes', Object.values(g.tally).reduce((a, b) => a + b, 0)]];
+  box.innerHTML = '';
+  for (const [k, v] of rows) {
+    const r = document.createElement('div');
+    r.className = 'row';
+    r.innerHTML = '<span></span><b></b>';
+    r.firstChild.textContent = k;
+    r.lastChild.textContent = String(v);
+    box.append(r);
+  }
+}
+
+function renderPeople() {
+  const list = Object.entries(room.scores).filter(([p]) => !room.banned[p]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const ul = $('people');
+  ul.innerHTML = '';
+  if (!list.length) { ul.innerHTML = '<li><span>nobody has scored yet.</span></li>'; return; }
+  for (const [pid, s] of list) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><b></b>';
+    li.firstChild.textContent = room.names[pid] || 'someone';
+    li.children[1].textContent = s;
+    const rm = document.createElement('button');
+    rm.className = 'btn';
+    rm.textContent = 'remove';
+    rm.setAttribute('aria-label', `remove ${room.names[pid] || 'this player'}`);
+    rm.addEventListener('click', () => { room.banned[pid] = 1; saveDirty = boardDirty = dirty = true; renderPeople(); });
+    li.append(rm);
+    ul.append(li);
+  }
+}
+
+const SETTINGS = [
+  ['pixel', 'batchS', 'pixel, seconds between badge prints', 5, 600],
+  ['pixel', 'promptMin', 'pixel, minutes per prompt', 1, 240],
+  ['hill', 'answerS', 'hill, seconds to answer', 20, 600],
+  ['hill', 'voteS', 'hill, seconds to vote', 20, 600],
+  ['snipe', 'holdS', 'snipe, seconds a code stays live', 10, 300],
+  ['snake', 'turnS', 'snake, seconds per turn', 5, 60],
+];
+
+function renderSettings() {
+  const box = $('settings');
+  box.innerHTML = '';
+  for (const [game, k, text, min, max] of SETTINGS) {
+    const id = `set-${game}-${k}`;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<label for="${id}"></label><input id="${id}" type="number" inputmode="numeric" min="${min}" max="${max}">`;
+    wrap.querySelector('label').textContent = text;
+    const input = wrap.querySelector('input');
+    input.value = room.cfg[game][k];
+    input.addEventListener('change', () => {
+      const v = Math.max(min, Math.min(max, Math.round(Number(input.value) || room.cfg[game][k])));
+      input.value = v;
+      room.cfg[game][k] = v;
+      saveDirty = true;
+    });
+    box.append(wrap);
+  }
+}
+
+// ---- start ----
+
+function cleanKey(text) {
+  const m = text.match(/hb-[0-9a-f]+/i);
+  return m ? m[0] : text.trim().replace(/^"+|"+$/g, '');
+}
+
+async function begin(secret) {
+  if (!window.CLASP || !window.qrcode) { $('gateMsg').textContent = 'a library did not load. check your network and reload.'; return; }
+  try { localStorage.setItem(KEY_STORE, secret); } catch (e) {}
+  // The room code comes from the key, so the printed join link stays the same all weekend.
+  const h = hash32(hex(await crypto.subtle.digest('SHA-256', te.encode(`${secret}.room`))));
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  roomCode = [0, 5, 10, 15].map(s => A[(h >>> s) & 31]).join('');
+  P = `/hb/play/${roomCode}`;
+  joinUrl = `${PLAY}#${roomCode}`;
+  room = load();
+
+  relay = new Relay('hack.build games host');
+  relay.onUp = () => { dirty = boardDirty = true; lastView = 0; lights(); };
+  relay.onDown = () => lights();
+  badge = new Badge(relay);
+  badge.onState = lights;
+  relay.on(`${P}/in/*`, onInput);
+  relay.on(`${P}/who/*`, onWho);
+  relay.on(`${P}/beat`, onBeat);
+  relay.on(`${P}/hb`, () => {});
+  relay.start();
+  await badge.open(secret);
+
+  $('gate').hidden = true;
+  $('app').hidden = false;
+  $('roomCode').textContent = roomCode;
+  $('joinUrl').textContent = joinUrl;
+  G.drawQR($('joinQr').getContext('2d'), joinUrl, 0, 0, 132);
+  await G.loadFonts();
+  fctx.fillStyle = '#fff';
+  fctx.fillRect(0, 0, G.W, G.H);
+  renderGames();
+  buildControls();
+  keepAwake();
+  say(room.g ? 'picked up the saved game.' : 'pick a game to start.');
+  // A browser throttles the timers of a page it thinks nobody is looking at, which stalls every
+  // round. A worker's timers keep running, so the game clock lives there.
+  try {
+    const ticker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 250)'], { type: 'text/javascript' })));
+    ticker.onmessage = loop;
+  } catch (e) {
+    setInterval(loop, 250);
+  }
+  setInterval(renderPeople, 3000);
+  setInterval(lights, 2000);
+  renderPeople();
+}
+
+$('gateForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const k = cleanKey($('key').value);
+  if (!k) { $('gateMsg').textContent = 'paste your badge key first.'; return; }
+  begin(k);
+});
+$('stop').addEventListener('click', stop);
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(joinUrl); $('copy').textContent = 'copied'; } catch (e) { $('copy').textContent = 'copy failed'; }
+  setTimeout(() => { $('copy').textContent = 'copy the link'; }, 2000);
+});
+$('forget').addEventListener('click', () => {
+  try { localStorage.removeItem(KEY_STORE); } catch (e) {}
+  location.reload();
+});
+
+let saved = '';
+try { saved = localStorage.getItem(KEY_STORE) || ''; } catch (e) {}
+if (saved) begin(saved);
+</script>
+</body>
+</html>

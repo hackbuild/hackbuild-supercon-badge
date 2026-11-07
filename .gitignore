@@ -3,3 +3,4 @@ backup-stock/
 badge/secret.local.json
 __pycache__/
 .hbf/
+node_modules/
