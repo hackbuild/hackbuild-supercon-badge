@@ -195,6 +195,13 @@ function load() {
       for (const k of Object.keys(G.DEFAULTS)) r.cfg[k] = { ...G.DEFAULTS[k], ...r.cfg[k] };
       // Rooms saved before snake turns were halved still carry the old 6 s.
       if (!r.cfgV) { if (r.cfg.snake.turnS === 6) r.cfg.snake.turnS = 3; r.cfgV = 1; }
+      if (r.cfgV < 2) {
+        const px = r.cfg.pixel;
+        if (px.batchS === 20) px.batchS = 0;
+        if (px.inkMax === 24) px.inkMax = 48;
+        if (px.inkEveryS === 4) px.inkEveryS = 1.5;
+        r.cfgV = 2;
+      }
       return r;
     }
   } catch (e) { /* a broken save starts a fresh room */ }
@@ -521,7 +528,7 @@ function renderPeople() {
 }
 
 const SETTINGS = [
-  ['pixel', 'batchS', 'pixel, seconds between badge prints', 5, 600],
+  ['pixel', 'batchS', 'pixel, extra seconds between badge prints', 0, 600],
   ['pixel', 'promptMin', 'pixel, minutes per prompt', 1, 240],
   ['hill', 'answerS', 'hill, seconds to answer', 20, 600],
   ['hill', 'voteS', 'hill, seconds to vote', 20, 600],
@@ -540,7 +547,8 @@ function renderSettings() {
     const input = wrap.querySelector('input');
     input.value = room.cfg[game][k];
     input.addEventListener('change', () => {
-      const v = Math.max(min, Math.min(max, Math.round(Number(input.value) || room.cfg[game][k])));
+      const n = Number(input.value);
+      const v = Math.max(min, Math.min(max, Math.round(input.value !== '' && Number.isFinite(n) ? n : room.cfg[game][k])));
       input.value = v;
       room.cfg[game][k] = v;
       saveDirty = true;

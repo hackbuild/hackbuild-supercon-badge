@@ -326,7 +326,7 @@ const RENDER = {
     const ink = inkNow();
     $('inkText').textContent = ink.max ? `${ink.n} of ${ink.max}${ink.n < ink.max ? `, +1 in ${Math.ceil(ink.next / 1000)} s` : ''}` : '';
     $('inkFill').style.width = ink.max ? `${(100 * ink.n) / ink.max}%` : '0';
-    $('pxBadge').textContent = 'the badge prints the canvas every so often, in black and white. red prints black.';
+    $('pxBadge').textContent = 'the badge reprints the canvas about every 6 s while people paint, in black and white. red prints black.';
   },
   hill() {
     const ph = view.phase, s = Math.ceil(leftMs() / 1000);
@@ -397,7 +397,8 @@ function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n 
 // ---- pixel commons ----
 
 const pxc = $('px').getContext('2d');
-let color = '1', pending = new Map(), showShown = false, painting = false;
+let color = '1', pending = new Map(), sent = new Map(), showShown = false, painting = false, lastCell = null, inkWarned = false;
+const SENT_HOLD_MS = 5000;
 
 function inkNow() {
   const y = you && !you.hill && !you.snipe && you.inkMax ? you : null;
@@ -408,53 +409,99 @@ function inkNow() {
   return { n: Math.max(0, n - pending.size), max: y.inkMax, next: Math.max(0, next) };
 }
 
-function drawPixels() {
-  const cells = showShown ? view.shown : view.cells;
-  const cw = $('px').width / PIX_C, ch = $('px').height / PIX_R;
-  pxc.fillStyle = '#fff';
-  pxc.fillRect(0, 0, $('px').width, $('px').height);
-  for (let i = 0; i < cells.length; i++) {
-    let c = cells[i];
-    if (!showShown && pending.has(i)) c = pending.get(i);
-    if (c === '0') continue;
-    pxc.fillStyle = c === '2' && !showShown ? '#d0021b' : '#000';
-    pxc.fillRect((i % PIX_C) * cw, Math.floor(i / PIX_C) * ch, Math.ceil(cw), Math.ceil(ch));
+// What this phone shows for one cell: an unsent stroke, then a sent one the host has not echoed yet.
+function cellAt(i, now) {
+  if (pending.has(i)) return pending.get(i);
+  const s = sent.get(i);
+  if (s) {
+    if (view.cells[i] === s.c || now - s.at > SENT_HOLD_MS) sent.delete(i);
+    else return s.c;
   }
-  pxc.strokeStyle = 'rgba(0,0,0,.08)';
-  pxc.lineWidth = 1;
-  for (let x = 1; x < PIX_C; x++) { pxc.beginPath(); pxc.moveTo(x * cw, 0); pxc.lineTo(x * cw, $('px').height); pxc.stroke(); }
-  for (let y = 1; y < PIX_R; y++) { pxc.beginPath(); pxc.moveTo(0, y * ch); pxc.lineTo($('px').width, y * ch); pxc.stroke(); }
+  return view.cells[i];
 }
 
-function paintAt(e) {
-  if (!view || view.kind !== 'pixel' || showShown) return;
+function drawPixels() {
+  const W = $('px').width, H = $('px').height, cw = W / PIX_C, ch = H / PIX_R, now = Date.now();
+  pxc.fillStyle = '#fff';
+  pxc.fillRect(0, 0, W, H);
+  for (let i = 0; i < PIX_C * PIX_R; i++) {
+    const c = showShown ? view.shown[i] : cellAt(i, now);
+    if (c === '0') continue;
+    pxc.fillStyle = c === '2' && !showShown ? '#d0021b' : '#000';
+    pxc.fillRect(Math.floor((i % PIX_C) * cw), Math.floor(Math.floor(i / PIX_C) * ch), Math.ceil(cw), Math.ceil(ch));
+  }
+  pxc.strokeStyle = 'rgba(0,0,0,.1)';
+  pxc.lineWidth = 1;
+  pxc.beginPath();
+  for (let x = 1; x < PIX_C; x++) { pxc.moveTo(Math.round(x * cw) + 0.5, 0); pxc.lineTo(Math.round(x * cw) + 0.5, H); }
+  for (let y = 1; y < PIX_R; y++) { pxc.moveTo(0, Math.round(y * ch) + 0.5); pxc.lineTo(W, Math.round(y * ch) + 0.5); }
+  pxc.stroke();
+}
+
+function cellOf(e) {
   const r = $('px').getBoundingClientRect();
   const x = Math.floor(((e.clientX - r.left) / r.width) * PIX_C), y = Math.floor(((e.clientY - r.top) / r.height) * PIX_R);
-  if (x < 0 || y < 0 || x >= PIX_C || y >= PIX_R) return;
+  return [Math.max(0, Math.min(PIX_C - 1, x)), Math.max(0, Math.min(PIX_R - 1, y))];
+}
+
+function paintCell(x, y) {
   const i = y * PIX_C + x;
-  if ((pending.get(i) ?? view.cells[i]) === color) return;
-  if (inkNow().n <= 0 && !pending.has(i)) { note('out of ink. it refills by itself.', true); return; }
+  if (cellAt(i, Date.now()) === color) return true;
+  if (inkNow().n <= 0) {
+    if (!inkWarned) { inkWarned = true; note('out of ink. it refills by itself, one every couple of seconds.', true); }
+    return false;
+  }
   pending.set(i, color);
+  return true;
+}
+
+// A finger moves several cells between two events, so every cell on the line between them gets paint.
+function paintTo(e) {
+  if (!view || view.kind !== 'pixel' || showShown) return;
+  const [x1, y1] = cellOf(e);
+  let [x0, y0] = lastCell || [x1, y1];
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    if (!paintCell(x0, y0)) break;
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+  lastCell = [x1, y1];
   drawPixels();
 }
 
-$('px').addEventListener('pointerdown', e => { painting = true; $('px').setPointerCapture(e.pointerId); paintAt(e); });
-$('px').addEventListener('pointermove', e => { if (painting) paintAt(e); });
-$('px').addEventListener('pointerup', () => { painting = false; flushPaint(); });
-$('px').addEventListener('pointercancel', () => { painting = false; flushPaint(); });
+$('px').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  painting = true;
+  lastCell = null;
+  inkWarned = false;
+  $('px').setPointerCapture(e.pointerId);
+  paintTo(e);
+});
+$('px').addEventListener('pointermove', e => {
+  if (!painting) return;
+  for (const ev of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) paintTo(ev);
+});
+const endStroke = () => { painting = false; lastCell = null; flushPaint(); };
+$('px').addEventListener('pointerup', endStroke);
+$('px').addEventListener('pointercancel', endStroke);
 
 function flushPaint() {
   if (!pending.size) return;
   const p = [...pending].map(([i, c]) => [i % PIX_C, Math.floor(i / PIX_C), Number(c)]);
   if (send('paint', { p })) {
-    // The host's copy replaces these when its next view arrives.
-    for (const [i, c] of pending) view.cells = view.cells.slice(0, i) + c + view.cells.slice(i + 1);
-    if (you) { you.ink = Math.max(0, you.ink - pending.size); }
+    const now = Date.now();
+    for (const [i, c] of pending) sent.set(i, { c, at: now });
+    if (you) you.ink = Math.max(0, you.ink - pending.size);
   }
   pending.clear();
   drawPixels();
 }
-setInterval(() => { if (painting) flushPaint(); }, 600);
+// Strokes go out while the finger is still down, so other phones and the badge see them sooner.
+setInterval(() => { if (painting) flushPaint(); }, 250);
 
 document.querySelectorAll('.palette button').forEach(b => b.addEventListener('click', () => {
   color = b.dataset.c;

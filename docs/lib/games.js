@@ -15,7 +15,7 @@ export const GAME_LIST = [
 ];
 
 export const DEFAULTS = {
-  pixel: { batchS: 20, promptMin: 20, inkMax: 24, inkEveryS: 4 },
+  pixel: { batchS: 0, promptMin: 20, inkMax: 48, inkEveryS: 1.5 },
   hill: { answerS: 90, voteS: 60, resultS: 12, votesEach: 5 },
   snipe: { holdS: 30 },
   snake: { turnS: 3 },
