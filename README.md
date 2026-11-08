@@ -48,7 +48,7 @@ Measured with `tools/loadtest`, 150 simulated phones on relay.clasp.to, one sock
 | the hill | 150 | 0 | 330 ms | about 1.0 s | 0.7 a second |
 | pixel commons | 150 | 0 | 321 ms | about 0.9 s | 2.4 a second |
 
-Not tested yet: flash snipe needs the badge to draw its codes, and the badge screens were only rendered in the browser, not sent to the panel during a load test. An iPhone pauses the host page when the screen locks, so keep the host page open.
+On the badge over a phone hotspot: flash snipe drew its code in 4.3 s, the code went live once the panel finished, and a claim scored. In snake the badge started a new screen every 6 to 7 s, one per turn. The load test and the panel have not been run together yet. An iPhone pauses the host page when the screen locks, so keep the host page open.
 
 ## Put it on a badge
 
