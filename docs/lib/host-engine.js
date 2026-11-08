@@ -18,6 +18,7 @@ import { GAMES, rulesFor } from '../games/registry.js';
 
 // Under the badge's 400000 byte transfer limit, with room for the reel's header.
 const REEL_MAX = 390_000;
+const PIPE_STUCK_MS = 120_000;
 
 const SAVE_KEY = 'hb.host.room.v2';
 const HOST_KEYS = 'hb.host.keys';
@@ -367,6 +368,8 @@ export class HostEngine {
   // Sends the badge a new screen whenever the game's screen key changed and the last one is drawn.
   async pipeline(now, ctx) {
     const pipe = this.pipe;
+    // Every wait in a send has a timeout, so a send busy this long is lost: start the pipe over.
+    if (pipe.busy && now - (pipe.since || now) > PIPE_STUCK_MS) { this.resetPipe(); this.tell('a badge send hung. sending again.', true); }
     if (!ctx || !this.rules.badge || !this.output || pipe.busy || !this.badge.online || now < pipe.retryAt) return;
     const b = this.rules.badge;
     if (b.mode === 'ink') {
@@ -393,8 +396,11 @@ export class HostEngine {
     const stale = st.play === 'reel' && pipe.reelOf !== pipe.gen;
     if (this.badge.busy && !st.loop && !stale && !b.live) return;
     // While a game runs the badge belongs to it; a badge moved off Play from its menu gets the game back.
-    if (this.badge.app && this.badge.app !== 'play') pipe.key = '';
+    if (this.badge.app && this.badge.app !== 'play') pipe.key = pipe.reelKey = '';
     const reel = b.reel && b.reel(ctx);
+    // A badge that is not playing the reel this page sent it, after a reboot, a menu trip or another
+    // sender, gets it again.
+    if (reel && reel.key === pipe.reelKey && st.play && st.play !== 'reel' && !this.badge.busy && now - pipe.at > 10_000) pipe.reelKey = '';
     if (reel && reel.key !== pipe.reelKey) {
       return this.run(async live => {
         const frames = [];
@@ -446,6 +452,7 @@ export class HostEngine {
     const gen = this.pipe.gen;
     const live = () => gen === this.pipe.gen;
     this.pipe.busy = true;
+    this.pipe.since = Date.now();
     try { await job(live); } catch (e) {
       if (live()) {
         this.pipe.retryAt = Date.now() + 5000;

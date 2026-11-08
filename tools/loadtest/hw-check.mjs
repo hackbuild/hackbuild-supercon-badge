@@ -45,7 +45,22 @@ await badge.waitDrawn(40000);
 await badge.lights(8000, [0, 0, 8]);
 say('lights countdown 8 s sent');
 
-if (process.argv[2] === 'stream') {
+if (process.argv[2] === 'bigreel') {
+  // A worst case 480 by 336 gif: ten frames of dithered noise, each dot two pixels square.
+  const { randomBytes } = await import('node:crypto');
+  const frames = [];
+  for (let i = 0; i < 10; i++) {
+    const px = new Uint8Array(ROW * H * 2), r = randomBytes(480 * 336);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (r[(y >> 1) * 480 + (x >> 1)] & 1) px[y * ROW + (x >> 3)] |= 0x80 >> (x & 7);
+    frames.push(await zlib(px));
+  }
+  const blob = reelBlob(frames), t = Date.now();
+  say(`sending a ${(blob.length / 1024).toFixed(0)} kb reel`);
+  try { await badge.sendReel(blob, { loops: 0 }); say(`sent in ${Date.now() - t} ms`); } catch (e) { say(`send failed: ${e.message}`); }
+  await new Promise(r => setTimeout(r, 12000));
+  await badge.play('join');
+  setTimeout(() => process.exit(0), 3000);
+} else if (process.argv[2] === 'stream') {
   // A bar crossing a 240 by 168 frame, sent every 150 ms, faster than the panel can draw.
   let draws = 0, wasBusy = false;
   const prev = badge.onState;

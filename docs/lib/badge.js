@@ -42,7 +42,7 @@ export class Badge {
     this.online = false;
     this.lastState = 0;
     this.queue = Promise.resolve();
-    this.nonceWaiters = [];
+    this.nonceWaiters = new Set();
     this.ackWaiters = new Set();
     this.xfer = 0;
     this.xferId = '';
@@ -83,7 +83,7 @@ export class Badge {
       this.lastState = Date.now();
       // The first copy can be the relay's stored one. A second proves the badge is awake.
       if (this.states >= 2 && !this.online) { this.online = true; this.onOnline(); }
-      this.nonceWaiters.splice(0).forEach(f => f());
+      [...this.nonceWaiters].forEach(f => f());
       this.onState();
     } else if (address === `${this.base}/ack`) {
       const [id, n] = String(value).split(':');
@@ -100,9 +100,12 @@ export class Badge {
 
   _waitNonce(old, ms) {
     if (this.state && this.state.n !== old) return Promise.resolve(true);
+    // The waiter stays until the nonce moves: while a reel plays, state reports arrive every frame,
+    // and the first one after a command usually predates it.
     return new Promise(resolve => {
-      const t = setTimeout(() => resolve(false), ms);
-      this.nonceWaiters.push(() => { if (this.state && this.state.n !== old) { clearTimeout(t); resolve(true); } });
+      const check = () => { if (this.state && this.state.n !== old) { clearTimeout(t); this.nonceWaiters.delete(check); resolve(true); } };
+      const t = setTimeout(() => { this.nonceWaiters.delete(check); resolve(false); }, ms);
+      this.nonceWaiters.add(check);
     });
   }
 

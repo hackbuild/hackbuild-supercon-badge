@@ -80,6 +80,8 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
 
 `tools/loadtest/hw-check.mjs` drives the real badge through the site's own `badge.js`: wake into Play, an LED countdown, an endless reel, live screens, a streamed frame test and the two buttons. `node hw-check.mjs live` or `node hw-check.mjs stream` picks a test.
 
+`node tools/loadtest/relay-watch.mjs 45` listens to the room and the badge's path for 45 s, read only, and prints what the host sends, what the badge reports and who owns the room.
+
 `tools/loadtest/badge-emu.mjs` stands in for the badge on the relay. It checks signatures and nonces the way the firmware does, acks chunks in order, inflates every frame and writes what the badge would show as PNGs, so the host pages can be tested with the badge in a drawer.
 
 ## What's here
