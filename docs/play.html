@@ -483,7 +483,8 @@ $('px').addEventListener('pointerdown', e => {
 });
 $('px').addEventListener('pointermove', e => {
   if (!painting) return;
-  for (const ev of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) paintTo(ev);
+  const batch = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  for (const ev of batch.length ? batch : [e]) paintTo(ev);
 });
 const endStroke = () => { painting = false; lastCell = null; flushPaint(); };
 $('px').addEventListener('pointerup', endStroke);
