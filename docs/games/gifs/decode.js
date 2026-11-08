@@ -4,9 +4,10 @@ import { parseGIF, decompressFrames } from 'https://cdn.jsdelivr.net/npm/gifuct-
 import { dither, packBits } from '../../lib/screen.js';
 import { pickFrames } from './pick.js';
 
-// 240 by 168 is the panel's shape at a quarter of its size: coarse dots that compress small and
-// transfer fast, which suits a meme better than a sharp picture would.
-export const FW = 240, FH = 168;
+// 480 by 336 is the panel's shape at half its size, each dot two pixels square. Playback speed
+// does not depend on it: the badge inflates every frame to the full panel either way. Only the
+// one time transfer grows, about 5 to 23 kb a frame.
+export const FW = 480, FH = 336;
 
 export async function load(source) {
   if (source instanceof ArrayBuffer) return source;

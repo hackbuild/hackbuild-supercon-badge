@@ -5,6 +5,10 @@
 import { PRESETS, preset } from './presets.js';
 
 const COOLDOWN_MS = 30_000;
+// GIFs added from a link join the library, newest first, up to this many.
+const LIBRARY_MAX = 60;
+
+const find = (s, id) => preset(id) || s.library.find(g => g.id === id);
 const MAX_QUEUE = 12;
 const LOAD_GIVE_UP_MS = 60_000;
 
@@ -35,12 +39,13 @@ function next(ctx) {
 export default {
   init(ctx) {
     const old = ctx.state;
-    return { queue: [], now: old ? old.now : null, loading: '', played: old ? old.played : 0, asked: {} };
+    return { queue: [], now: old ? old.now : null, loading: '', played: old ? old.played : 0, asked: {},
+      library: old && old.library ? old.library : [], added: old ? old.added || 0 : 0 };
   },
 
   input: {
     request(ctx, pid, msg) {
-      const s = ctx.state, p = preset(msg.id);
+      const s = ctx.state, p = typeof msg.id === 'string' ? find(s, msg.id) : null;
       if (!ctx.cfg.requests) return { note: 'requests are off right now.' };
       if (!p) return null;
       const wait = (s.asked[pid] || 0) + COOLDOWN_MS - ctx.now;
@@ -68,7 +73,7 @@ export default {
     const s = ctx.state, n = s.now;
     return { now: n ? { title: n.title, url: n.url, by: n.by, frames: n.frames.length } : null, loading: s.loading,
       queue: s.queue.map(q => ({ title: q.title, by: q.by })), requests: !!ctx.cfg.requests,
-      presets: PRESETS.map(p => ({ id: p.id, title: p.title, url: p.url })) };
+      presets: [...PRESETS, ...s.library].map(p => ({ id: p.id, title: p.title, url: p.url, thumb: p.thumb || p.url })) };
   },
 
   you(ctx, pid) { return { wait: Math.max(0, (ctx.state.asked[pid] || 0) + COOLDOWN_MS - ctx.now) }; },
@@ -106,4 +111,13 @@ export default {
   // The host page's GIF panel.
   playNow(ctx, item) { play(ctx, item); },
   enqueue(ctx, item) { if (ctx.state.queue.length < MAX_QUEUE) ctx.state.queue.push(item); },
+  // A link the wearer played or queued, kept so phones can ask for it too.
+  addToLibrary(ctx, item) {
+    const s = ctx.state;
+    if (!item.url || PRESETS.some(p => p.url === item.url) || s.library.some(g => g.url === item.url)) return false;
+    s.library.unshift({ id: `u${++s.added}`, title: item.title.slice(0, 40), url: item.url });
+    s.library.length = Math.min(s.library.length, LIBRARY_MAX);
+    return true;
+  },
+  removeFromLibrary(ctx, id) { const s = ctx.state; s.library = s.library.filter(g => g.id !== id); },
 };

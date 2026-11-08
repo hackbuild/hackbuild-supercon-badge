@@ -1,7 +1,7 @@
 import * as S from '../../lib/screen.js';
 
 // The projector shows the real GIF over its screen; this is what it shows underneath and what
-// the badge shows between GIFs. Each frame of a reel fills the panel exactly: 240 by 168 times 4.
+// the badge shows between GIFs. Each frame of a reel fills the panel exactly.
 export function overlay(m) { return m && m.now && m.now.url ? m.now.url : ''; }
 
 export function draw(c, m, { color, join }) {

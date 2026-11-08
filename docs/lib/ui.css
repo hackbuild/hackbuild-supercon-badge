@@ -106,6 +106,8 @@ h3{font:600 14px var(--mono);margin:var(--s4) 0 var(--s2);color:var(--ink2)}
 .gifpick img{width:100%;aspect-ratio:10/7;object-fit:cover;display:block;background:var(--sunk)}
 .gifpick span{font:600 12px var(--mono);padding:4px 6px}
 .gifpick:disabled{opacity:.5}
+.giftile{display:grid;gap:2px}
+.giftile .btn.quiet{min-height:32px;font-size:12px;padding:0}
 @keyframes flash{0%{background:var(--ink)}100%{background:transparent}}
 .flash{animation:flash .5s ease-out}
 

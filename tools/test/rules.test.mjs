@@ -434,3 +434,20 @@ test('arcade: each controller is held while anyone dealt to it holds it', async 
   assert.equal(seatOf(s, 'c', 2), 0);
   assert.deepEqual(held(s, 2, ['b']), [0, 2]);
 });
+
+test('gifs: a link joins the library once, phones can ask for it, and it can be removed', async () => {
+  const rules = (await import('../../docs/games/gifs/rules.js')).default;
+  const ctx = { now: 100_000, cfg: { requests: true }, state: null, name: () => 'x', award() {} };
+  ctx.state = rules.init(ctx);
+  const item = { title: 'dance', url: 'https://example.com/dance.gif' };
+  assert.equal(rules.addToLibrary(ctx, item), true);
+  assert.equal(rules.addToLibrary(ctx, item), false);
+  const id = ctx.state.library[0].id;
+  assert.ok(rules.view(ctx).presets.some(p => p.id === id));
+  assert.deepEqual(rules.input.request(ctx, 'p1', { id }), { changed: true });
+  assert.equal(ctx.state.queue[0].url, item.url);
+  rules.removeFromLibrary(ctx, id);
+  assert.equal(ctx.state.library.length, 0);
+  ctx.state.library = [];
+  assert.equal(rules.init(ctx).library.length, 0);
+});

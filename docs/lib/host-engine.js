@@ -16,6 +16,9 @@ import * as credit from './credit.js';
 import { cleanName } from './words.js';
 import { GAMES, rulesFor } from '../games/registry.js';
 
+// Under the badge's 400000 byte transfer limit, with room for the reel's header.
+const REEL_MAX = 390_000;
+
 const SAVE_KEY = 'hb.host.room.v2';
 const HOST_KEYS = 'hb.host.keys';
 const P256_COORD = /^[A-Za-z0-9_-]{43}$/;
@@ -392,6 +395,10 @@ export class HostEngine {
           frames.push(await zlib(this.render(model)));
         }
         if (!live()) return;
+        // The badge takes at most 400000 bytes in one transfer: a long reel keeps every other frame.
+        let keep = frames;
+        while (keep.length > 2 && reelBlob(keep).length > REEL_MAX) keep = keep.filter((f, i) => i % 2 === 0);
+        frames.splice(0, frames.length, ...keep);
         this.tell(`sending a ${frames.length} frame reel to the badge.`);
         await this.badge.sendReel(reelBlob(frames), { loops: reel.loops ?? 2 });
         if (!live()) return;
