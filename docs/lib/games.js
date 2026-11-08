@@ -118,9 +118,9 @@ export function input(room, pid, msg, now) {
 }
 
 // Advances timers. Returns true when the view changed.
-export function tick(room, now, badge) {
+export function tick(room, now, badge, active = []) {
   const fn = TICK[room.kind];
-  return fn ? fn(room, room.g, now, badge) : false;
+  return fn ? fn(room, room.g, now, badge, active) : false;
 }
 
 // ---- pixel commons ----
@@ -242,20 +242,40 @@ export function hillYou(room, pid) {
     let v = g.votes[pid];
     if (!v) { v = { n: 0, at: matchup(room, pid, 0) }; g.votes[pid] = v; }
     const done = v.n >= room.cfg.hill.votesEach || v.at < 0;
-    return { hill: { r: g.round, i: done ? -1 : v.at, text: done ? '' : g.subs[v.at].text, left: room.cfg.hill.votesEach - v.n } };
+    return { hill: { r: g.round, i: done ? -1 : v.at, text: done ? '' : g.subs[v.at].text, left: room.cfg.hill.votesEach - v.n, none: v.at < 0 && v.n === 0 } };
   }
   const mine = g.subs.find(s => s.pid === pid);
   return { hill: { r: g.round, mine: mine ? { text: mine.text, w: mine.w, l: mine.l } : null } };
 }
 
+const HILL_RETIRE = 3;
+const HILL_QUESTION_ROUNDS = 5;
+
+function hillAllDone(room, g, active) {
+  if (g.phase === 'answer') return active.length >= 2 && active.every(pid => g.subs.some(s => s.pid === pid));
+  if (g.phase === 'vote') {
+    return active.every(pid => {
+      const v = g.votes[pid];
+      if (v) return v.n >= room.cfg.hill.votesEach || v.at < 0;
+      return matchup(room, pid, 0) < 0;
+    });
+  }
+  return false;
+}
+
+// A challenger takes the hill by beating it more often than it lost. The best margin wins, so a
+// big room needs a real lead and a room of three can still change hands. The starter quip is a
+// placeholder: with nobody voting, the earliest answer takes the empty hill.
 function hillEndVote(room, g) {
   let best = null;
   for (const s of g.subs) {
-    const n = s.w + s.l;
-    if (n < 2 || s.w < 2) continue;
-    const rate = s.w / n;
-    if (rate <= 0.5) continue;
-    if (!best || rate > best.rate || (rate === best.rate && s.w > best.s.w)) best = { s, rate };
+    if (s.w <= s.l) continue;
+    const margin = s.w - s.l, rate = s.w / (s.w + s.l);
+    if (!best || margin > best.margin || (margin === best.margin && rate > best.rate)) best = { s, margin, rate };
+  }
+  if (!best && !g.champ.pid && g.subs.length) {
+    const s = [...g.subs].sort((a, b) => (b.w - b.l) - (a.w - a.l) || b.w - a.w)[0];
+    best = { s, margin: s.w - s.l, rate: s.w + s.l ? s.w / (s.w + s.l) : 0 };
   }
   const p = HILL_PROMPTS[(g.prompt - 1) % HILL_PROMPTS.length];
   if (best) {
@@ -356,9 +376,14 @@ const TICK = {
     }
     return false;
   },
-  hill(room, g, now) {
-    if (now < g.until) return false;
+  hill(room, g, now, badge, active) {
     const c = room.cfg.hill;
+    // A phase ends early once everyone here has done their part, so a small group never waits.
+    if (now < g.until && active && active.length && g.until - now > 3000 && hillAllDone(room, g, active)) {
+      g.until = now + 3000;
+      return true;
+    }
+    if (now < g.until) return false;
     if (g.phase === 'answer') {
       if (g.subs.length < 1) { g.until = now + c.answerS * 1000; return false; }
       g.phase = 'vote';
@@ -371,7 +396,19 @@ const TICK = {
     } else {
       g.phase = 'answer';
       g.round++;
-      g.prompt++;
+      g.retired = null;
+      // The question stays while one quip defends it. After three holds, or five rounds on one
+      // question, the quip retires and a new question starts.
+      g.qRounds = (g.qRounds || 1) + 1;
+      if (g.champ.held >= HILL_RETIRE || g.qRounds > HILL_QUESTION_ROUNDS) {
+        g.qRounds = 1;
+        if (g.champ.pid) addScore(room, g.champ.pid, 50);
+        g.retired = { text: g.champ.text, name: g.champ.name };
+        g.prompt++;
+        const p = HILL_PROMPTS[(g.prompt - 1) % HILL_PROMPTS.length];
+        g.prev = null;
+        g.champ = { text: p.seed, q: p.q, name: 'hack.build', pid: '', held: 0 };
+      }
       g.subs = [];
       g.votes = {};
       g.result = null;
@@ -423,7 +460,7 @@ export function view(room, now, players, badge) {
     case 'hill':
       return { ...base, phase: g.phase, round: g.round, left, q: HILL_PROMPTS[(g.prompt - 1) % HILL_PROMPTS.length].q,
         champ: { text: g.champ.text, q: g.champ.q, name: g.champ.name, held: g.champ.held }, subs: g.subs.length,
-        result: g.result };
+        result: g.result, retired: g.retired || null, starter: !g.champ.pid };
     case 'snipe':
       return { ...base, round: g.round, live: g.live, waiting: g.waiting, left, claims: g.claims.slice(0, 5).map(c => [c.name, c.ms, c.pts]), best: g.best.map(c => [c.name, c.ms]) };
     case 'snake':
@@ -556,15 +593,16 @@ const DRAW = {
     ctx.fillRect(0, 0, W, 120);
     block(ctx, g.champ.q, `700 {}px ${MONO}`, { x: 24, y: 14, w: 912, h: 92 }, 38, { color: PAPER, valign: 'middle' });
     block(ctx, g.champ.text, `{}px ${DISPLAY}`, { x: 28, y: 146, w: 680, h: 330 }, 120, { valign: 'middle', lead: 1.05 });
-    const held = g.champ.held ? `, held ${g.champ.held} round${g.champ.held === 1 ? '' : 's'}` : '';
-    label(ctx, `by ${g.champ.name}${held}`.slice(0, 44), 28, 500, 28);
+    label(ctx, (g.champ.pid ? `by ${g.champ.name}, held ${g.champ.held} of 3` : 'starter quip. beat it.').slice(0, 44), 28, 500, 28);
     const word = g.phase === 'answer' ? 'answer now' : g.phase === 'vote' ? 'vote now' : g.result && g.result.took ? 'new champion' : 'it held';
     ctx.lineWidth = 6;
     ctx.strokeStyle = INK;
     ctx.strokeRect(24, 566, 470, 86);
     block(ctx, word, `{}px ${DISPLAY}`, { x: 40, y: 574, w: 440, h: 70 }, 64, { valign: 'middle' });
     joinBox(ctx, url, roomCode, 744, 360, 200);
-    label(ctx, 'take the hill.', 520, 600, 24);
+    const hint = g.phase === 'answer' ? 'write yours' : g.phase === 'vote' ? 'pick the best' : 'next round soon';
+    label(ctx, hint, 516, 586, 24);
+    label(ctx, `round ${g.round}`, 516, 618, 24);
   },
   snipe(ctx, room, g, url, roomCode) {
     const target = `${url}.${g.code}`;

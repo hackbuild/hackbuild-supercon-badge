@@ -359,7 +359,8 @@ function loop() {
   if (!owner) return;
   if (room.g) {
     if (room.kind === 'snake' && G.snakeLopsided(room, now)) room.g.until = now;
-    if (G.tick(room, now, badgeInfo)) { dirty = saveDirty = boardDirty = true; }
+    const active = [...seen].filter(([pid, t]) => now - t < 45_000 && !room.banned[pid]).map(([pid]) => pid);
+    if (G.tick(room, now, badgeInfo, active)) { dirty = saveDirty = boardDirty = true; }
   }
   publish(now);
   pushBadge(now);

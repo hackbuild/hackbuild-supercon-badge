@@ -331,7 +331,7 @@ const RENDER = {
     $('hillPhase').textContent = ph === 'answer' ? `round ${view.round}, answer` : ph === 'vote' ? `round ${view.round}, vote` : `round ${view.round}, result`;
     $('hillLeft').textContent = ph === 'result' ? '' : `${s}s`;
     $('hillChampText').textContent = view.champ.text;
-    $('hillChampBy').textContent = `by ${view.champ.name}${view.champ.held ? `, held ${view.champ.held}` : ''}. it answered: ${view.champ.q}`;
+    $('hillChampBy').textContent = view.starter ? 'a starter quip. any answer that wins its votes takes it.' : `by ${view.champ.name}, held ${view.champ.held} of 3 rounds`;
     $('hillAnswer').hidden = ph !== 'answer';
     $('hillVote').hidden = ph !== 'vote';
     $('hillResult').hidden = ph !== 'result';
@@ -346,10 +346,10 @@ const RENDER = {
       $('voteC').querySelector('span').textContent = can ? h.text : '';
       $('voteH').disabled = $('voteC').disabled = !can;
       $('voteC').hidden = !can;
-      $('votesLeft').textContent = !h ? 'getting your matchup.' : h.i < 0 ? 'you have voted. the result shows when the time runs out.' : `${h.left} vote${h.left === 1 ? '' : 's'} left this round.`;
+      $('votesLeft').textContent = !h ? 'getting your matchup.' : h.none ? 'no other answers to vote on this round. yours still counts.' : h.i < 0 ? 'you have voted. the result shows when everyone is done.' : `${h.left} vote${h.left === 1 ? '' : 's'} left this round.`;
     } else {
       const r = view.result || {};
-      $('hillResultHead').textContent = r.took ? `new champion, ${r.rate}% of votes` : 'the hill held';
+      $('hillResultHead').textContent = r.took ? `new champion: ${r.name}` : `the hill held, ${view.champ.held} of 3`;
       const m = h && h.mine;
       $('hillResultMine').textContent = m ? `your answer won ${m.w} and lost ${m.l}.` : 'answer next round to take a shot at the badge.';
     }
