@@ -8,6 +8,7 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 - [Host crowd games](https://supercon.hack.build/host) from the wearer's phone.
 - [Control the badge](https://supercon.hack.build/): logo, slides, messages.
 - [Preview the screens](https://supercon.hack.build/viewer.html) without a badge.
+- [How it works](https://supercon.hack.build/how.html), on one page with a diagram.
 
 ## The games
 
@@ -18,7 +19,7 @@ Nine games and a meme GIF mode, each built for anywhere from one person to a roo
 | the hill | answer a prompt, then pick the funnier of pairs of answers. The winner goes on the badge and the next prompt starts on its own | one screen per phase |
 | name that package | a real footprint shows up. Type its name. First right answer wins a capsule credit, and the reveal shows the pinout | one screen per question |
 | live ink | everyone draws on one page | strokes stream to the badge, which draws them itself and refreshes about every 1.25 s |
-| pixel commons | a shared pixel canvas with a prompt, and ink that refills | reprints when it changed, about every 6 s |
+| pixel commons | a shared pixel canvas with a prompt, and ink that refills | one quick pass when it changed, batched every few seconds |
 | 2 fps cinema | draw one frame of a 12 frame loop, with the frame before yours showing faintly | full reels play on the badge as a flip book |
 | dither booth | take an opt in selfie, dithered for e-paper. The room votes one onto the badge | one portrait at a time |
 | flash snipe | every redraw shows a new code. First claims score most | a code goes live once the badge has drawn it |
@@ -53,6 +54,7 @@ Open the host page on the phone you'll carry, or a laptop by the stage. Paste th
 - The page you opened last owns the room. Any other host page stops itself and offers to take over.
 - User a and user b on the badge run the game's two main controls, like ending a phase or skipping a prompt, so you can run a game with your hands free. The host page labels which is which.
 - The LED bar drains over each phase, and flashes when live ink lands, so the room can see the badge is working.
+- For the retro arcade, load a rom from a link or a file on the arcade panel. EmulatorJS runs on the host device and plays the sound there, so a laptop by the stage beats a phone for N64. A rom link only loads if its server allows supercon.hack.build to fetch it; otherwise pick the file. Play only homebrew or games you own.
 - Nothing a stranger types or uploads reaches the badge unfiltered. Text goes through a word filter. Photos wait in your approval queue. **remove** takes a player out of every game.
 
 ## How it holds up with a crowd
@@ -76,6 +78,8 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
 
 `node --test tools/test/rules.test.mjs` plays the rules through one person alone, two people and 120 people.
 
+`tools/loadtest/hw-check.mjs` drives the real badge through the site's own `badge.js`: wake into Play, an LED countdown, an endless reel, live screens, a streamed frame test and the two buttons. `node hw-check.mjs live` or `node hw-check.mjs stream` picks a test.
+
 `tools/loadtest/badge-emu.mjs` stands in for the badge on the relay. It checks signatures and nonces the way the firmware does, acks chunks in order, inflates every frame and writes what the badge would show as PNGs, so the host pages can be tested with the badge in a drawer.
 
 ## What's here
@@ -83,7 +87,8 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
     art/build.py        draws every slide and reduces it to the panel's three colors
     badge/apps/         hack.build, Capsule, Sent, and Play for the games
     badge/lib/          CLASP client, remote link, fast refresh, live ink
-    docs/               the pages, served by GitHub Pages
+    docs/               the pages, served by GitHub Pages at supercon.hack.build
+    docs/how.html       how it all fits together, on one page
     docs/lib/           relay connection, badge link, host engine, sealing, credits, drawing kit
     docs/games/<id>/    rules.js on the host, screen.js for badge and projector, phone.js for players
     docs/parts/         the footprints and pinouts, CC-BY-SA 4.0 from KiCad
@@ -123,7 +128,22 @@ On the badge, **menu +/-** opens the menu and **user a** or **user b** opens the
 
 ## Remote control and the relay
 
-The key names a private path on the public relay and signs every command with HMAC-SHA256 and a one time nonce. Live ink batches are signed and numbered instead, so a stream never waits a round trip. Images are checked against a signed SHA-256.
+The key names a private path on the public relay and signs every command with HMAC-SHA256 and a one time nonce. Screens and reels travel in 16 KB chunks, three in flight, acked in order, written beside the old file and swapped in. Images are checked against a signed SHA-256.
+
+Two streams skip the round trip. Live ink batches and arcade frames are signed and numbered, so the host never waits on the badge. For frames the badge keeps only the newest one, scales the 240 by 168 picture up four times and draws it as soon as the panel is free.
+
+The Play app draws in one of these modes:
+
+| mode | what it does |
+|---|---|
+| join | the join screen with the room's QR code |
+| frame | one screen, clean three pass refresh |
+| live | one screen in a quick pass, booster kept on. Snake and pixel commons use it |
+| ink | strokes drawn on the badge as they arrive |
+| stream | arcade frames, newest first |
+| reel | a flip book of frames, looped a set number of times or until the next one |
+
+Every quick mode cleans the panel every 12 passes, and once updates stop for 4 s.
 
 The game rooms are public by design, so a few things are worth knowing. Anyone with the room code can read the game state. Photos and credits are sealed with ECDH and AES-GCM, so only the host opens a photo before it's approved, and only the winner's phone opens a credit. The badge doesn't verify the relay's TLS certificate, because it has no CA bundle.
 
@@ -140,6 +160,8 @@ Measured on one badge:
 | full color refresh | 32.6 s |
 | loading a screen file | about 110 ms |
 | 6 KB image over the relay | 1.8 s |
+| a live screen, from send to drawn | about 3.4 s, 1.9 s of it the transfer |
+| streamed arcade frames | one every 1.25 to 1.3 s, a 3.9 s clean pass every 12 |
 
 Fast mode uses the short waveform Hackaday ships in `data/rendered_luts.py`. It has no red, so red draws as black. Live ink and reels run single passes with the booster left on between them, then a clean three pass refresh when things go quiet.
 
@@ -149,4 +171,4 @@ The next step is a change-only table. The Spiral app in the official badge repo 
 
 ## Credits and licences
 
-The CLASP client in `badge/lib/hb_clasp.py` follows the wire format in lumencanvas/clasp (Apache-2.0). Footprints and pin names in `docs/parts` come from the KiCad libraries and Espressif's KiCad libraries, CC-BY-SA 4.0 with the KiCad design exception. Fonts in `art/fonts` are Apache-2.0 and OFL from Google Fonts. The hack.build mark and slide art are mine, all rights reserved. The code is MIT.
+The CLASP client in `badge/lib/hb_clasp.py` follows the wire format in lumencanvas/clasp (Apache-2.0). The arcade loads [EmulatorJS](https://emulatorjs.org) (GPL-3.0) from its CDN at run time; none of it is copied here. GIFs are parsed with gifuct-js (MIT), also from a CDN. Footprints and pin names in `docs/parts` come from the KiCad libraries and Espressif's KiCad libraries, CC-BY-SA 4.0 with the KiCad design exception. Fonts in `art/fonts` are Apache-2.0 and OFL from Google Fonts. The hack.build mark and slide art are mine, all rights reserved. The code is MIT.

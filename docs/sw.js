@@ -4,14 +4,14 @@
 // including the giphy gifs and every non-GET request, goes to the network untouched. Every URL is
 // relative so the site works under its /hackbuild-supercon-badge/ path.
 
-const SHELL_CACHE = 'hb-badge-shell-v1';
+const SHELL_CACHE = 'hb-badge-shell-v2';
 const CDN_CACHE = 'hb-badge-cdn-v1';
 const KEEP = [SHELL_CACHE, CDN_CACHE];
 // A cached page is served after this long without a network answer, so a bad link never hangs a load.
 const NETWORK_WAIT_MS = 4000;
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const SHELL = [
-  './', 'index.html', 'host.html', 'play.html', 'stage.html', 'coin.html', 'viewer.html',
+  './', 'index.html', 'host.html', 'play.html', 'stage.html', 'coin.html', 'viewer.html', 'how.html',
   'manifest.webmanifest', 'lib/ui.css',
   'icons/icon-32.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
 ];

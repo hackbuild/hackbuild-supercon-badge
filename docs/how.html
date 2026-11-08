@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
+<title>How It Works</title>
+<meta name="description" content="How the hack.build badge, its relay and the crowd game pages fit together.">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/ui.css">
+<style>
+body{min-height:100dvh}
+.page{max-width:1320px;margin:0 auto;padding:var(--s4);display:grid;gap:var(--s4)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:var(--s2)}
+.top h1{font-size:34px;line-height:1}
+.top p{font:15px/1.4 var(--type);color:var(--ink2);margin:0;max-width:60ch}
+.top nav{display:flex;gap:var(--s3);font-size:13px;font-weight:600}
+.map{background:var(--raised);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s2)}
+.map svg{display:block;width:100%;height:auto;max-height:42vh}
+.panels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4)}
+.panel{background:var(--raised);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s3) var(--s4);display:grid;align-content:start;gap:var(--s2)}
+.panel h2{font-size:22px;line-height:1.1}
+.panel p,.panel li{font-size:13px;line-height:1.45;margin:0}
+.panel ol,.panel ul{margin:0;padding-left:var(--s5);display:grid;gap:6px}
+.panel ul{list-style:square}
+.num{font:30px/1 var(--inst)}
+.bars2{display:grid;gap:var(--s2)}
+.bar{display:grid;grid-template-columns:86px minmax(0,1fr);gap:var(--s2);align-items:center;font-size:12px}
+.bar i{display:block;height:16px;background:var(--ink)}
+.bar b{font:22px/1 var(--inst);white-space:nowrap}
+.bar .track{display:flex;align-items:center;gap:var(--s2);min-width:0}
+.modes{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px var(--s2);font-size:12px;margin:0}
+.modes dt{font-weight:600}
+.modes dd{margin:0;color:var(--ink2)}
+.foot{font-size:12px;color:var(--ink3);display:flex;gap:var(--s4);flex-wrap:wrap;justify-content:space-between}
+@media (max-width:1100px){.panels{grid-template-columns:repeat(2,minmax(0,1fr))}.map svg{max-height:none}}
+@media (max-width:640px){.panels{grid-template-columns:1fr}.top h1{font-size:28px}}
+.swipe{display:none;font-size:12px;color:var(--ink3);margin:var(--s1) 0 0}
+@media (max-width:760px){.map{overflow-x:auto}.map svg{width:760px;max-width:none}.swipe{display:block}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="top">
+  <h1>how it works</h1>
+  <p>phones are the controllers, one host page runs the game, and the badge is the slow public screen. everything meets on one relay.</p>
+  <nav aria-label="pages"><a href="play.html">play</a><a href="host.html">host</a><a href="stage.html">projector</a><a href="index.html">badge control</a></nav>
+</header>
+
+<figure class="map" aria-labelledby="mapCap">
+  <figcaption id="mapCap" class="sr" hidden>Phones, the host page and the projector talk through relay.clasp.to. The host page sends signed screens to the badge over the same relay. Winners carry credits to the capsule machine on an NFC coin.</figcaption>
+  <svg viewBox="0 0 1200 420" role="img" aria-label="architecture: phones, relay, host page, projector, badge, capsule machine">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/></marker>
+      <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#FE0386"/></marker>
+    </defs>
+    <style>
+      .bx{fill:#fffdf7;stroke:#1a1a1a;stroke-width:3}
+      .sh{fill:#1a1a1a}
+      .t{font:600 15px 'IBM Plex Mono',monospace;fill:#1a1a1a}
+      .s{font:13px 'IBM Plex Mono',monospace;fill:#444}
+      .h{font:21px 'Permanent Marker',cursive;fill:#1a1a1a}
+      .ln{stroke:#1a1a1a;stroke-width:2.5;fill:none}
+      .lp{stroke:#FE0386;stroke-width:3.5;fill:none}
+      .dash{stroke-dasharray:7 6}
+      .lab{font:12px 'IBM Plex Mono',monospace;fill:#1a1a1a}
+      .labp{font:600 12px 'IBM Plex Mono',monospace;fill:#b0005d}
+    </style>
+
+    <!-- phones -->
+    <rect class="sh" x="36" y="56" width="200" height="214"/>
+    <rect class="bx" x="30" y="50" width="200" height="214"/>
+    <text class="h" x="48" y="86">phones</text>
+    <g>
+      <rect x="52" y="104" width="38" height="66" rx="5" fill="#fffdf7" stroke="#1a1a1a" stroke-width="2.5"/>
+      <rect x="100" y="104" width="38" height="66" rx="5" fill="#fffdf7" stroke="#1a1a1a" stroke-width="2.5"/>
+      <rect x="148" y="104" width="38" height="66" rx="5" fill="#fffdf7" stroke="#1a1a1a" stroke-width="2.5"/>
+      <text class="t" x="194" y="148">+</text>
+    </g>
+    <text class="s" x="48" y="198">play page</text>
+    <text class="s" x="48" y="218">1 to 150 people</text>
+    <text class="s" x="48" y="238">tap, vote, draw</text>
+
+    <!-- relay -->
+    <rect class="sh" x="336" y="166" width="480" height="96"/>
+    <rect x="330" y="160" width="480" height="96" fill="#1a1a1a"/>
+    <text x="350" y="194" style="font:24px 'Permanent Marker',cursive;fill:#f5f0e6">relay.clasp.to</text>
+    <text x="350" y="220" style="font:13px 'IBM Plex Mono',monospace;fill:#f5f0e6">/hb/play/ROOM   public room</text>
+    <text x="350" y="240" style="font:13px 'IBM Plex Mono',monospace;fill:#f5f0e6">/hb/badge/ID    private, signed</text>
+
+    <!-- host -->
+    <rect class="sh" x="476" y="16" width="250" height="100"/>
+    <rect class="bx" x="470" y="10" width="250" height="100"/>
+    <text class="h" x="486" y="44">host page</text>
+    <text class="s" x="486" y="68">wearer's phone or laptop</text>
+    <text class="s" x="486" y="88">runs the rules, the only</text>
+    <text class="s" x="486" y="104">writer of game state</text>
+
+    <!-- projector -->
+    <rect class="sh" x="476" y="316" width="250" height="90"/>
+    <rect class="bx" x="470" y="310" width="250" height="90"/>
+    <text class="h" x="486" y="344">projector</text>
+    <text class="s" x="486" y="368">the game large, in color,</text>
+    <text class="s" x="486" y="386">join qr and leaderboard</text>
+
+    <!-- badge: the one pink thing -->
+    <rect x="941" y="86" width="240" height="204" fill="#FE0386"/>
+    <rect class="bx" x="935" y="80" width="240" height="204"/>
+    <text class="h" x="951" y="114">badge</text>
+    <rect x="951" y="126" width="208" height="76" fill="#f5f0e6" stroke="#1a1a1a" stroke-width="2"/>
+    <text class="s" x="962" y="150">e-paper 960 x 672</text>
+    <text class="s" x="962" y="170">black, white, red</text>
+    <text class="s" x="962" y="190">esp32-s3, micropython</text>
+    <text class="s" x="951" y="226">led bar, user a and b</text>
+    <text class="s" x="951" y="246">apps: logo, capsule,</text>
+    <text class="s" x="951" y="262">sent, play</text>
+
+    <!-- capsule -->
+    <rect class="sh" x="36" y="336" width="236" height="72"/>
+    <rect class="bx" x="30" y="330" width="236" height="72"/>
+    <text class="h" x="46" y="362">capsule machine</text>
+    <text class="s" x="46" y="388">checks the coin, vends</text>
+
+    <!-- phones and relay -->
+    <path class="ln" d="M230 150 L330 190" marker-end="url(#ah)"/>
+    <text class="lab" x="236" y="140">in/&lt;id&gt; input</text>
+    <path class="ln" d="M330 230 L230 240" marker-end="url(#ah)"/>
+    <text class="lab" x="236" y="278">view, you/&lt;id&gt;</text>
+
+    <!-- host and relay -->
+    <path class="ln" d="M560 110 L560 160" marker-end="url(#ah)"/>
+    <path class="ln" d="M620 160 L620 110" marker-end="url(#ah)"/>
+    <text class="lab" x="456" y="140">state out</text>
+    <text class="lab" x="628" y="140">inputs in</text>
+
+    <!-- relay to projector -->
+    <path class="ln" d="M595 256 L595 310" marker-end="url(#ah)"/>
+    <text class="lab" x="603" y="290">stage</text>
+
+    <!-- relay and badge: the signed path -->
+    <path class="lp" d="M810 186 L935 150" marker-end="url(#ahp)"/>
+    <text class="labp" x="814" y="124">screens, ink,</text>
+    <text class="labp" x="814" y="140">frames, signed</text>
+    <path class="ln" d="M935 236 L810 236" marker-end="url(#ah)"/>
+    <text class="lab" x="826" y="226">state, a / b</text>
+
+    <!-- coin -->
+    <path class="ln dash" d="M130 264 L130 330" marker-end="url(#ah)"/>
+    <text class="lab" x="140" y="302">credit on an</text>
+    <text class="lab" x="140" y="318">nfc coin</text>
+  </svg>
+  <p class="swipe">swipe the diagram sideways.</p>
+</figure>
+
+<section class="panels">
+  <article class="panel">
+    <h2>one tap, start to finish</h2>
+    <ol>
+      <li>your phone writes its input to <code>in/your-id</code>.</li>
+      <li>the host page reads it, about 0.4 s later at 100 phones, measured.</li>
+      <li>the rules update the game and publish what everyone sees, plus a private note for you.</li>
+      <li>when the badge's screen changes, the host draws it at 960 x 672, signs it and sends it in 16 kb chunks, three at a time.</li>
+      <li>the badge checks the signature, acks each chunk and draws.</li>
+    </ol>
+  </article>
+
+  <article class="panel">
+    <h2>how the badge draws</h2>
+    <p>e-paper moves pigment, so every update takes time. measured on this badge:</p>
+    <div class="bars2" aria-label="refresh times">
+      <div class="bar"><span>quick pass</span><span class="track"><i style="width:4%"></i><b>1.25 s</b></span></div>
+      <div class="bar"><span>clean pass</span><span class="track"><i style="width:13%"></i><b>4.3 s</b></span></div>
+      <div class="bar"><span>full color</span><span class="track"><i style="width:70%"></i><b>32.6 s</b></span></div>
+    </div>
+    <p>live games, ink, gifs and the arcade use quick passes with the booster left on. quick passes leave faint ghosts, so every 12th pass is clean, and a clean pass follows 4 s of quiet.</p>
+  </article>
+
+  <article class="panel">
+    <h2>what the badge listens for</h2>
+    <dl class="modes">
+      <dt>cmd</dt><dd>signed commands with a one time nonce: play, lights, img, reel</dd>
+      <dt>chunk</dt><dd>pieces of a screen or reel, acked in order, saved then swapped in</dd>
+      <dt>ink</dt><dd>stroke batches, signed and numbered, drawn by the badge itself</dd>
+      <dt>fr</dt><dd>arcade frames, signed and numbered, the newest one wins</dd>
+    </dl>
+    <p>it answers with its state: app, busy, mode, draw time. user a and user b go back to the host and run the game's two main controls. the led bar counts down each phase.</p>
+  </article>
+
+  <article class="panel">
+    <h2>what keeps it honest</h2>
+    <ul>
+      <li>the badge key stays in the host's browser. it names the badge's private path and signs every message with hmac-sha256.</li>
+      <li>photos are sealed to the host, credits to the winner's phone: ecdh p-256 and aes-gcm.</li>
+      <li>a credit is 6 random bytes and 6 bytes of hmac. the capsule machine checks it and spends it once.</li>
+      <li>the game room is public by design. text goes through a word filter and photos wait for approval.</li>
+    </ul>
+  </article>
+</section>
+
+<footer class="foot">
+  <span>firmware in <code>badge/</code>, pages in <code>docs/</code>, games in <code>docs/games/</code></span>
+  <a href="https://github.com/hackbuild/hackbuild-supercon-badge">the code on github</a>
+</footer>
+
+</div>
+</body>
+</html>
