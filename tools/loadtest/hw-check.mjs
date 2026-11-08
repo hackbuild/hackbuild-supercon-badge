@@ -46,7 +46,7 @@ await badge.lights(8000, [0, 0, 8]);
 say('lights countdown 8 s sent');
 
 if (process.argv[2] === 'stream') {
-  // A bar crossing a 240 by 168 frame, sent every 400 ms like the arcade does.
+  // A bar crossing a 240 by 168 frame, sent every 150 ms, faster than the panel can draw.
   let draws = 0, wasBusy = false;
   const prev = badge.onState;
   badge.onState = () => { prev(); if (badge.busy && !wasBusy) draws++; wasBusy = badge.busy; };
@@ -55,7 +55,7 @@ if (process.argv[2] === 'stream') {
     const px = new Uint8Array(5040), x0 = (i * 12) % 200;
     for (let y = 30; y < 140; y++) for (let x = x0; x < x0 + 40; x++) px[(y * 240 + x) >> 3] |= 0x80 >> (x & 7);
     await badge.frame(Buffer.from(px).toString('base64'));
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 150));
   }
   say(`streamed 20 s, the panel started ${draws} draws, ${(20 / Math.max(1, draws)).toFixed(2)} s each`);
   await new Promise(r => setTimeout(r, 7000));

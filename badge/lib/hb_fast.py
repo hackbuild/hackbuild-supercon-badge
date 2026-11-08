@@ -197,7 +197,7 @@ def _split(left, right, black, red):
         y += 1
 
 
-def _write_frame(zero):
+def _write_frame(zero, planes=None):
     o = _otp
     _reg(0x01, o[0x10:0x11])
     _reg(0x13, o[0x16:0x1C])
@@ -205,7 +205,7 @@ def _write_frame(zero):
     left, right = _bufs
     bus = _bus()
     try:
-        for index, a, b in ((0x10, left, right), (0x11, zero, zero)):
+        for index, a, b in planes or ((0x10, left, right), (0x11, zero, zero)):
             _bus_done(bus)
             _reg(0x12, o[0x13:0x16])
             _DC.value(0)
@@ -254,7 +254,7 @@ def _delay(d):
         time.sleep_us(10 * (d & 0x7F))
 
 
-async def _start_booster():
+async def _start_booster(lut=None):
     o = _otp
     await aio.sleep_ms(10)
     for cmd, arg, ms in (
@@ -267,7 +267,8 @@ async def _start_booster():
         _reg(cmd, arg)
         if ms:
             await aio.sleep_ms(ms)
-    _reg(0xB0, _lut)
+    # The panel latches 0xB0 once per session; writing it again mid session brings back its slow waveform.
+    _reg(0xB0, lut or _lut)
     _ramp()
     await aio.sleep_ms(5)
     return _idle() or await _wait(True, 10_000)
@@ -290,6 +291,71 @@ async def _stop_booster():
 _hot = False
 _zero = None
 
+# ---- change-only frames ----
+# The panel picks a table per pixel from (0x11 bit << 1) | 0x10 bit. With what the film shows now in
+# 0x11 and the new frame in 0x10, table 1 is white to black and table 2 black to white, and the rest
+# stay at ground: only changed pixels move and nothing flashes. Every group is one frame of phase c
+# (SRab 0, TPc 1, TPd 0, never a zero count, which hangs the chips), so a pull runs 10 frames, about
+# 0.24 s, against about 1 s for the shipped table. After each pull the chips swap their planes, so
+# 0x11 already holds the frame just shown and the next frame only needs 0x10.
+# Erased ink leaves a light ghost, so callers still run a clean show now and then.
+_CALM_FRAMES = const(10)
+# Sessions of 60 pulls are proven on this panel; the session reopens after that.
+_CALM_SESSION = const(60)
+_calm = None
+_latched = None  # which table the open session holds: "base" or "calm"
+_pulls = 0
+_shown = None  # (left, right): what the film holds now
+_shown_ok = False
+
+
+def _calm_table():
+    t = bytearray(400)
+    for g in range(50):
+        t[8 * g:8 * g + 8] = b"\x00\x01\x01\x00\x01\x00\x01\x01"
+    for f in range(_CALM_FRAMES - 1):  # the last frame is ground
+        t[(10 + f) * 8] = 0x04  # table 1, VDH in phase c
+        t[(20 + f) * 8] = 0x08  # table 2, VDL in phase c
+    return bytes(t)
+
+
+def _remember():
+    global _shown, _shown_ok
+    if _shown is None:
+        _shown = (bytearray(_HALF_PLANE), bytearray(_HALF_PLANE))
+    _shown[0][:] = _bufs[0]
+    _shown[1][:] = _bufs[1]
+    _shown_ok = True
+
+
+async def _calm_show():
+    """One change-only frame. True once drawn; False leaves the session closed."""
+    global _hot, _latched, _pulls, _calm
+    if _calm is None:
+        _calm = _calm_table()
+    ok = False
+    try:
+        if _hot and _latched == "calm" and _pulls < _CALM_SESSION:
+            _write_frame(None, ((0x10, _bufs[0], _bufs[1]),))
+            ok = True
+        else:
+            if _hot:
+                _hot = False
+                await _stop_booster()
+                await _park()
+            await _reset(5, 2, 4, 20)
+            _write_frame(None, ((0x10, _bufs[0], _bufs[1]), (0x11, _shown[0], _shown[1])))
+            ok = await _start_booster(_calm)
+            _latched, _pulls = "calm", 0
+        ok = ok and await _pass()
+        _pulls += 1
+        _hot = ok
+    finally:
+        if not _hot:
+            await _stop_booster()
+            await _park()
+    return ok
+
 
 async def show(passes=PASSES, stay_on=False):
     """Shows the framebuffers. Returns milliseconds, or None if the caller should use a color update.
@@ -299,13 +365,24 @@ async def show(passes=PASSES, stay_on=False):
     stay_on leaves the booster running, so the next show skips about half a second of power up and
     down; whoever asks for it calls cool() once the screen goes quiet.
     """
-    global _hot, _zero
+    global _hot, _zero, _latched
     if _failed or (_otp is None and not await _load_calibration()):
         return None
     t0 = time.ticks_ms()
     if _zero is None:
         _zero = bytes(_HALF_PLANE)
     _split(_bufs[0], _bufs[1], display._framebuffer_black, display._framebuffer_red)
+    # A single pass that keeps the booster on is a live frame: it goes change-only when the film
+    # state is known.
+    if passes == 1 and stay_on and _shown_ok:
+        if await _calm_show():
+            _remember()
+            return time.ticks_diff(time.ticks_ms(), t0)
+        print("hb_fast: change-only frame failed, using the shipped table")
+    if _hot and _latched != "base":
+        _hot = False
+        await _stop_booster()
+        await _park()
     ok = False
     try:
         if _hot:
@@ -315,6 +392,7 @@ async def show(passes=PASSES, stay_on=False):
             await _reset(5, 2, 4, 20)
             _write_frame(_zero)
             ok = await _start_booster()
+            _latched = "base"
         if ok:
             for _ in range(max(1, passes)):
                 ok = ok and await _pass()
@@ -326,6 +404,7 @@ async def show(passes=PASSES, stay_on=False):
     if not ok:
         print("hb_fast: refresh failed, falling back to a color update")
         return None
+    _remember()
     return time.ticks_diff(time.ticks_ms(), t0)
 
 
@@ -362,6 +441,11 @@ def _reverse(buf, table, n: int):
 
 def _send_images(self, black_left, red_left, black_right, red_right):
     """Same register sequence as the stock driver, over hardware SPI with no per byte Python loop."""
+    global _shown_ok, _hot
+    # The stock update resets the chips and leaves red on the film: a change-only frame would start
+    # from the wrong picture, and no session of ours is open any more.
+    _shown_ok = False
+    _hot = False
     if self._reverse_fb_bits:
         if _rev is None:
             _make_rev()

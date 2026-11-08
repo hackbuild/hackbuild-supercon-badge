@@ -176,11 +176,12 @@ body{min-height:100dvh}
     <h2>how the badge draws</h2>
     <p>e-paper moves pigment, so every update takes time. measured on this badge:</p>
     <div class="bars2" aria-label="refresh times">
+      <div class="bar"><span>change only</span><span class="track"><i style="width:1.2%"></i><b>0.36 s</b></span></div>
       <div class="bar"><span>quick pass</span><span class="track"><i style="width:4%"></i><b>1.25 s</b></span></div>
       <div class="bar"><span>clean pass</span><span class="track"><i style="width:13%"></i><b>4.3 s</b></span></div>
       <div class="bar"><span>full color</span><span class="track"><i style="width:70%"></i><b>32.6 s</b></span></div>
     </div>
-    <p>live games, ink, gifs and the arcade use quick passes with the booster left on. quick passes leave faint ghosts, so every 12th pass is clean, and a clean pass follows 4 s of quiet.</p>
+    <p>live games, ink, gifs and the arcade draw change-only frames with the booster left on: only pixels that change move, so nothing flashes. erased ink leaves a light ghost, so every 40th frame is clean, and a clean pass follows 4 s of quiet.</p>
   </article>
 
   <article class="panel">

@@ -10,7 +10,7 @@ const PRESETS = [{ name: 'smash', url: 'https://doot.sfo3.cdn.digitaloceanspaces
 const FW = 240, FH = 168;
 // The badge keeps only the newest frame, so sending faster than it draws costs nothing but
 // relay traffic, and what it draws is never more than this old.
-const SNAP_MS = 400;
+const SNAP_MS = 250;
 
 // EmulatorJS keeps one game per page, so it lives as long as the page does.
 let running = null;

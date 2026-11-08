@@ -18,7 +18,7 @@ SIZES = (3, 6, 12)
 # Strokes arrive from phones through the host. A point far off the page would otherwise keep the
 # only event loop in a drawing loop for minutes.
 LIMIT = 1024
-QUICK_BEFORE_CLEAN = 12
+QUICK_BEFORE_CLEAN = 40
 QUIET_CLEAN_MS = 4000
 
 _fb = framebuf.FrameBuffer(display._framebuffer_black, W, H, framebuf.MONO_HLSB)

@@ -18,7 +18,7 @@ JOIN_PATH = "/data/hb/join.z"
 FRAME_PATH = "/data/hb/play.z"
 REEL_PATH = "/data/hb/reel.bin"
 # A one pass frame leaves faint ghosts, so an endless reel cleans one frame in this many.
-CLEAN_EVERY = 12
+CLEAN_EVERY = 40
 # Live screens draw in one quick pass. Once they stop coming, the last one gets a clean refresh.
 LIVE_SETTLE_MS = 4000
 # A streamed frame is 240 by 168, a quarter of the panel each way.

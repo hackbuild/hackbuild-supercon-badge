@@ -18,14 +18,14 @@ Nine games and a meme GIF mode, each built for anywhere from one person to a roo
 |---|---|---|
 | the hill | answer a prompt, then pick the funnier of pairs of answers. The winner goes on the badge and the next prompt starts on its own | one screen per phase |
 | name that package | a real footprint shows up. Type its name. First right answer wins a capsule credit, and the reveal shows the pinout | one screen per question |
-| live ink | everyone draws on one page | strokes stream to the badge, which draws them itself and refreshes about every 1.25 s |
+| live ink | everyone draws on one page | strokes stream to the badge, which draws them itself and refreshes about every 0.36 s |
 | pixel commons | a shared pixel canvas with a prompt, and ink that refills | one quick pass when it changed, batched every few seconds |
 | 2 fps cinema | draw one frame of a 12 frame loop, with the frame before yours showing faintly | full reels play on the badge as a flip book |
 | dither booth | take an opt in selfie, dithered for e-paper. The room votes one onto the badge | one portrait at a time |
 | flash snipe | every redraw shows a new code. First claims score most | a code goes live once the badge has drawn it |
 | snake by committee | the room votes every move. A turn ends once half the room agrees, so a few people steer it live | one quick pass per turn |
 | meme gifs | the wearer taps a GIF, pastes a link or picks a file. Phones ask for the next one from a preset list | ten dithered frames loop on the badge until the next GIF |
-| retro arcade | the host loads a rom and EmulatorJS runs it in the host page. Your phone is the controller, laid out like the console's own. The room can share one controller or split into up to four players | frames stream to the badge, which draws the newest in one quick pass, about 1.3 s each |
+| retro arcade | the host loads a rom and EmulatorJS runs it in the host page. Your phone is the controller, laid out like the console's own. The room can share one controller or split into up to four players | frames stream to the badge, which draws the newest one, about 0.36 s each |
 
 Name That Package came out of my [hackbuild-fab](https://github.com/hackbuild/hackbuild-fab) parts workflow. `tools/parts/build.py` pulls 38 footprints from the KiCad library mirror on GitHub, Espressif's KiCad library and the hbf catalog, and the pin names from KiCad's current symbols, so the pinout on a reveal is the one KiCad ships. Supercon favorites are in there: the Z80 and the 1802 in DIP-40, the CH32V003, the Blue Pill chip, the RP2040, ESP32 modules, a WS2812B, a Pi header and a USB-C receptacle. While a game runs, the host can search KiCad's library and add more footprints on the spot.
 
@@ -143,7 +143,7 @@ The Play app draws in one of these modes:
 | stream | arcade frames, newest first |
 | reel | a flip book of frames, looped a set number of times or until the next one |
 
-Every quick mode cleans the panel every 12 passes, and once updates stop for 4 s.
+Every quick mode cleans the panel every 40 frames, and once updates stop for 4 s.
 
 The game rooms are public by design, so a few things are worth knowing. Anyone with the room code can read the game state. Photos and credits are sealed with ECDH and AES-GCM, so only the host opens a photo before it's approved, and only the winner's phone opens a credit. The badge doesn't verify the relay's TLS certificate, because it has no CA bundle.
 
@@ -155,19 +155,22 @@ Measured on one badge:
 |---|---|
 | fast refresh, three passes | 4.3 s |
 | one quick pass, booster kept on | 1.25 s |
+| one change-only frame, booster kept on | 355 to 366 ms |
 | 12 frame reel, played twice | 34.6 s |
 | a 10 frame GIF over the relay | under 1 s, three 16 KB chunks in flight |
 | full color refresh | 32.6 s |
 | loading a screen file | about 110 ms |
 | 6 KB image over the relay | 1.8 s |
 | a live screen, from send to drawn | about 3.4 s, 1.9 s of it the transfer |
-| streamed arcade frames | one every 1.25 to 1.3 s, a 3.9 s clean pass every 12 |
+| streamed arcade frames | one every 0.36 s, about 2.8 a second |
 
 Fast mode uses the short waveform Hackaday ships in `data/rendered_luts.py`. It has no red, so red draws as black. Live ink and reels run single passes with the booster left on between them, then a clean three pass refresh when things go quiet.
 
-Where the time goes: the SPI transfer of a full frame is about 70 ms. The rest of a pass is the waveform. The shipped table runs its full drive on every pixel, every pass, so the panel flashes and one pass sits near 1.25 s.
+Where the time goes: the shipped table drives every pixel for about 1 s on every pass, so the whole panel flashes. Sending a frame takes tens of milliseconds.
 
-The next step is a change-only table. The Spiral app in the official badge repo writes a 20-frame table to register 0xB0. The table it uses comes from the old and new bits of each pixel, so pixels that stay put sit at ground and only the ones that change get driven. Its author reports about 0.65 s per step, 580 ms of panel drive plus the transfer. That number is the author's, not mine yet. Twenty frames is the floor for this controller's table format, so expect a fraction of a second per update. Milliseconds aren't on the table: the pigment needs that long to move.
+Quick frames are change-only, after [badge os](https://github.com/yigitabi5444/supercon26-badge-os) by yigitabi5444, which first got 3.5 to 4 frames a second out of this panel. The panel picks a waveform table per pixel from its two memory planes. With what the film shows now in one plane and the new frame in the other, only pixels that change get driven: white to black on VDH, black to white on VDL, everything else at ground. The table is ten one-frame groups, so a pull takes about 0.24 s, and the panel swaps its planes after each pull, so the next frame only sends one plane. Nothing flashes. Erased ink leaves a light ghost, which the clean pass every 40 frames takes off. The code in `badge/lib/hb_fast.py` is written from that description; badge os itself is GPL-2.0 and none of it is copied here. The official repo's `lib/epd_partial.py` does the same with 20 frames.
+
+The pigment sets the floor. Milliseconds aren't possible on e-paper; a third of a second is about what this film does with a clean-looking change.
 
 ## Credits and licences
 
