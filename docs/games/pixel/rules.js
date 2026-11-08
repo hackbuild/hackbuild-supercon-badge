@@ -68,6 +68,7 @@ export default {
   youKey(ctx, pid) { const e = ctx.state.ink[pid]; return e ? `${e.n}.${e.at}` : 'full'; },
 
   badge: {
+    live: true,
     mode: 'still',
     key: ctx => `${ctx.state.prompt}.${ctx.state.cells}`,
     gapMs: ctx => ctx.cfg.batchS * 1000,

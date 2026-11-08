@@ -1,9 +1,11 @@
 // Snake by committee: the room votes a direction every turn and the majority moves the snake.
-// A turn ends early when one direction has 80 percent of the votes and at least three people, and
-// half the room, have voted.
+// A turn ends as soon as half the room has voted and 60 percent agree, so a small group steers in
+// real time and a crowd moves as fast as it can agree. The badge draws whatever turn is newest.
 
 export const COLS = 15, ROWS = 12;
 const DIRS = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
+// The shortest turn, so phones see each move before the next one lands.
+const MIN_TURN_MS = 800;
 const OPP = { U: 'D', D: 'U', L: 'R', R: 'L' };
 
 function reset(s) {
@@ -77,11 +79,12 @@ export default {
     const s = ctx.state, t = s.tally, n = t.U + t.D + t.L + t.R;
     // With nobody here the snake waits: it would run into a wall and redraw the e-paper every turn.
     if (!ctx.active.length) { s.until = ctx.now + ctx.cfg.turnS * 1000; return false; }
-    // Half the room has to have voted, or the first three phones to tap would steer a crowd.
-    const quorum = Math.max(3, Math.ceil(ctx.active.length / 2));
-    if (n >= quorum && Math.max(t.U, t.D, t.L, t.R) / n >= 0.8 && s.until - ctx.now > 1250) s.until = ctx.now;
+    // Half the room has to have voted, or the first phones to tap would steer a crowd.
+    const quorum = Math.max(1, Math.ceil(ctx.active.length / 2));
+    if (n >= quorum && Math.max(t.U, t.D, t.L, t.R) / n >= 0.6) s.until = Math.min(s.until, (s.from || 0) + MIN_TURN_MS);
     if (ctx.now < s.until) return false;
     if (s.over) { if (++s.overTurns >= 2) reset(s); } else step(ctx, s);
+    s.from = ctx.now;
     s.until = ctx.now + ctx.cfg.turnS * 1000;
     return true;
   },
@@ -95,6 +98,7 @@ export default {
   youKey(ctx, pid) { const s = ctx.state; return `${s.turn}.${s.voted[pid] || ''}`; },
 
   badge: {
+    live: true,
     mode: 'still',
     key: ctx => { const s = ctx.state; return `${s.turn}.${s.over}`; },
     model: ctx => { const s = ctx.state; return { snake: s.snake, food: s.food, score: s.score, best: s.best, turn: s.turn, split: s.split, over: s.over }; },

@@ -1,0 +1,87 @@
+// Retro arcade: a game console runs in the host page and the phones are its controllers.
+// Each phone sends the buttons it is holding as one bitmask. The host splits the room into as
+// many controllers as the setting asks, and a controller is held while anyone on it holds it.
+// The badge gets a dithered snapshot in one quick pass as often as it can draw.
+
+import { CONSOLES } from './consoles.js';
+
+const listeners = new Set();
+// The host panel drives the emulator from here; rules stay free of the page.
+export function onPads(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+const changed = s => listeners.forEach(fn => fn(s));
+
+// A controller per player: the room is dealt out in the order people first pressed something.
+export function seatOf(s, pid, seats) { const i = s.order.indexOf(pid); return i < 0 ? 0 : i % seats; }
+
+export function held(s, seats, active) {
+  const pads = new Array(seats).fill(0);
+  for (const pid of active) if (s.masks[pid]) pads[seatOf(s, pid, seats)] |= s.masks[pid];
+  return pads;
+}
+
+export default {
+  init(ctx) {
+    const old = ctx.state;
+    return { rom: old ? old.rom : null, masks: {}, order: [], frame: null, frameId: 0 };
+  },
+
+  input: {
+    pad(ctx, pid, msg) {
+      const s = ctx.state;
+      if (!s.rom || !Number.isInteger(msg.m) || msg.m < 0 || msg.m >= 1 << 16) return null;
+      if (!s.order.includes(pid)) s.order.push(pid);
+      s.masks[pid] = msg.m;
+      changed(s);
+      return null;
+    },
+  },
+
+  tick(ctx) {
+    // A phone that went quiet must not hold a button down.
+    const s = ctx.state, live = new Set(ctx.active);
+    let dropped = false;
+    for (const pid of Object.keys(s.masks)) if (!live.has(pid)) { delete s.masks[pid]; dropped = true; }
+    if (dropped) changed(s);
+    return false;
+  },
+
+  view(ctx) {
+    const s = ctx.state, seats = Math.min(ctx.cfg.seats, s.rom ? CONSOLES[s.rom.core].max : 1);
+    return { rom: s.rom ? { name: s.rom.name, core: s.rom.core } : null, seats };
+  },
+
+  you(ctx, pid) {
+    const s = ctx.state, seats = Math.min(ctx.cfg.seats, s.rom ? CONSOLES[s.rom.core].max : 1);
+    return { seat: seats > 1 && s.order.includes(pid) ? seatOf(s, pid, seats) + 1 : 0 };
+  },
+  youKey(ctx, pid) { return String(this.you(ctx, pid).seat); },
+
+  badge: {
+    mode: 'still',
+    live: true,
+    key: ctx => `arcade.${ctx.state.frameId}`,
+    model: ctx => {
+      const s = ctx.state;
+      return s.frame ? { kind: 'frame', ...s.frame } : { kind: 'idle', rom: s.rom ? s.rom.name : '' };
+    },
+  },
+
+  controls: () => [
+    { label: 'let go of every button', run: ctx => { ctx.state.masks = {}; changed(ctx.state); } },
+    { label: 'deal controllers again', run: ctx => { ctx.state.order = []; } },
+  ],
+
+  headline(ctx) {
+    const s = ctx.state;
+    return { big: s.rom ? s.rom.name : 'load a game below', small: s.rom ? `${Object.keys(s.masks).length} holding buttons` : 'paste a rom link' };
+  },
+
+  stats(ctx) {
+    const s = ctx.state;
+    return [['game', s.rom ? `${s.rom.name}, ${CONSOLES[s.rom.core].label}` : 'none'], ['players who pressed', s.order.length]];
+  },
+
+  // The host panel.
+  load(ctx, rom) { const s = ctx.state; s.rom = rom; s.masks = {}; s.frame = null; changed(s); },
+  snapshot(ctx, frame) { const s = ctx.state; s.frame = frame; s.frameId++; },
+};

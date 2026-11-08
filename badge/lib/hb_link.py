@@ -279,7 +279,7 @@ class Link:
             self.goto("image")
             return
         # A frame followed by live ink becomes the page the crowd draws on.
-        PlayApp._instance.set_mode("reel" if to == "reel" else "inkframe" if then == "ink" else "frame", loops)
+        PlayApp._instance.set_mode("reel" if to == "reel" else "inkframe" if then == "ink" else "live" if then == "live" else "frame", loops)
         self.goto("play")
 
     def send(self, suffix, text):

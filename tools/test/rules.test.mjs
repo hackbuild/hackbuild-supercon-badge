@@ -425,3 +425,12 @@ test('gifs: stop drops a decode still in flight, so the gif does not come back a
   assert.equal(r.state.loading, '');
   assert.notEqual(r.state.loadId, id, 'the decode in flight no longer owns the screen');
 });
+
+test('arcade: each controller is held while anyone dealt to it holds it', async () => {
+  const { held, seatOf } = await import('../../docs/games/arcade/rules.js');
+  const s = { order: ['a', 'b', 'c'], masks: { a: 1, b: 2, c: 4 } };
+  assert.deepEqual(held(s, 1, ['a', 'b', 'c']), [7]);
+  assert.deepEqual(held(s, 2, ['a', 'b', 'c']), [5, 2]);
+  assert.equal(seatOf(s, 'c', 2), 0);
+  assert.deepEqual(held(s, 2, ['b']), [0, 2]);
+});

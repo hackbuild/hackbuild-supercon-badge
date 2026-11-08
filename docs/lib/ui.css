@@ -52,6 +52,10 @@ h3{font:600 14px var(--mono);margin:var(--s4) 0 var(--s2);color:var(--ink2)}
 .pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,64px);gap:var(--s2);max-width:300px;margin:0 auto}
 .pad button{border:3px solid var(--ink);background:var(--raised);font:28px var(--disp)}
 .pad button[aria-pressed=true]{background:var(--ink);color:var(--raised)}
+.keys{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2)}
+.keys button{min-height:64px;border:3px solid var(--ink);background:var(--raised);font:600 18px var(--mono)}
+.keys button[aria-pressed=true]{background:var(--ink);color:var(--raised)}
+.pad button,.keys button{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .bars{display:grid;gap:var(--s1);font-size:13px}
 .bars div{display:grid;grid-template-columns:48px minmax(0,1fr) 32px;gap:var(--s2);align-items:center}
 .bars i{display:block;height:12px;background:var(--ink)}

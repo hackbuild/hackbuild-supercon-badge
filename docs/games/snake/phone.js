@@ -47,7 +47,9 @@ export function mount(root, api) {
   t.every(500, () => { if (view) timer.textContent = seconds(api.left(view)); });
   return {
     update(v, y) {
-      if (view && v.turn !== view.turn) mine = '';
+      // A vote carries into the next turn until it changes, so the snake keeps going where you point.
+      if (view && v.turn !== view.turn && mine && !v.over) api.send('dir', { turn: v.turn, d: mine });
+      if (v.over) mine = '';
       view = v;
       you = y;
       draw();

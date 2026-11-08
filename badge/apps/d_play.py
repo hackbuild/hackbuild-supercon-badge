@@ -6,6 +6,7 @@ them into the running game's two main controls, so the wearer can run a game wit
 """
 import asyncio as aio
 import struct
+import time
 
 from apps.base_app import BaseApp
 from lib import hb_fast, hb_ink, hb_lights, hb_state
@@ -16,6 +17,8 @@ FRAME_PATH = "/data/hb/play.z"
 REEL_PATH = "/data/hb/reel.bin"
 # A one pass frame leaves faint ghosts, so an endless reel cleans one frame in this many.
 CLEAN_EVERY = 12
+# Live screens draw in one quick pass. Once they stop coming, the last one gets a clean refresh.
+LIVE_SETTLE_MS = 4000
 
 
 class PlayApp(BaseApp):
@@ -30,6 +33,8 @@ class PlayApp(BaseApp):
         self.loops = 2
         self.gen = 0
         self.reel_task = None
+        self.quick = 0
+        self.live_at = 0
         self.on_press = None
         PlayApp._instance = self
 
@@ -55,6 +60,10 @@ class PlayApp(BaseApp):
             self.on_press("b")
         if self.mode not in ("ink", "inkframe") and hb_ink.active:
             hb_ink.stop()
+        if (self.mode == "live" and self.quick and not self.pending and self.reel_task is None
+                and time.ticks_diff(time.ticks_ms(), self.live_at) > LIVE_SETTLE_MS):
+            self.quick = CLEAN_EVERY
+            self.pending = True
         if not self.pending or self.reel_task is not None or hb_ink.stopping() or not hb_state.panel_idle():
             return
         self.pending = False
@@ -67,11 +76,31 @@ class PlayApp(BaseApp):
             hb_ink.start(clear_page=False)
         elif self.mode == "reel":
             self.reel_task = aio.create_task(self._play_reel(self.gen, self.loops))
+        elif self.mode == "live":
+            self.reel_task = aio.create_task(self._live_frame())
         elif self.mode == "frame":
             if not hb_state.show(FRAME_PATH):
                 hb_state.show(JOIN_PATH)
         else:
             hb_state.show(JOIN_PATH)
+
+    async def _live_frame(self):
+        """One game screen in a single quick pass, the booster left on for the next one."""
+        try:
+            if not hb_state.load(FRAME_PATH):
+                return
+            self.quick += 1
+            clean = self.quick >= CLEAN_EVERY
+            if not await hb_state.refresh(3 if clean else 1, stay_on=not clean):
+                hb_state.show(FRAME_PATH)
+                await aio.sleep_ms(1000)
+            if clean:
+                self.quick = 0
+            self.live_at = time.ticks_ms()
+        except (OSError, ValueError) as ex:
+            print("play: live frame failed", ex)
+        finally:
+            self.reel_task = None
 
     async def _play_reel(self, gen, loops):
         """Plays the frames with one quick pass each, the booster left on between them. loops 0

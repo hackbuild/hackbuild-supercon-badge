@@ -53,6 +53,10 @@ export const GAMES = [
       { key: 'halftone', label: 'halftone dots, off for sharper text', def: true, kind: 'bool' },
       { key: 'requests', label: 'phones can ask for gifs', def: true, kind: 'bool' },
     ] },
+  { id: 'arcade', host: true, name: 'retro arcade', verb: 'play together', howto: 'your phone is the controller. hold buttons as long as you want them held.', blurb: 'a game console runs on the host page. phones are the controllers.',
+    settings: [
+      { key: 'seats', label: 'controllers to split the room into', def: 1, min: 1, max: 4 },
+    ] },
   { id: 'snake', name: 'snake by committee', howto: 'vote a direction every turn. the majority moves the snake.',  verb: 'steer together', blurb: 'the room votes every move.',
     settings: [
       { key: 'turnS', label: 'seconds per turn', def: 3, min: 2, max: 60 },

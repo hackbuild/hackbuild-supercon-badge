@@ -379,7 +379,7 @@ export class HostEngine {
     // interrupted. Anything else the badge is drawing is waited for.
     const st = this.badge.state || {};
     const stale = st.play === 'reel' && pipe.reelOf !== pipe.gen;
-    if (this.badge.busy && !st.loop && !stale) return;
+    if (this.badge.busy && !st.loop && !stale && !b.live) return;
     // While a game runs the badge belongs to it; a badge moved off Play from its menu gets the game back.
     if (this.badge.app && this.badge.app !== 'play') pipe.key = '';
     const reel = b.reel && b.reel(ctx);
@@ -410,15 +410,17 @@ export class HostEngine {
       const model = b.model(ctx);
       const z = await zlib(this.render(model));
       this.tell(`sending ${(z.length / 1024).toFixed(1)} kb to the badge.`);
-      await this.badge.sendScreen(z, { to: 'play' });
-      await this.badge.waitDrawn();
+      // A live game draws in one quick pass a screen; the badge cleans up once screens stop coming.
+      await this.badge.sendScreen(z, { to: 'play', then: b.live ? 'live' : '' });
+      // A live game sends its next screen while this one draws; the badge draws the newest it has.
+      if (!b.live) await this.badge.waitDrawn();
       if (!live()) return;
       pipe.key = key;
       pipe.at = Date.now();
       if (b.shown) b.shown(this.ctx(Date.now()), key);
       this.dirty.view = this.dirty.stage = true;
       const s = this.badge.state;
-      this.tell(`the badge shows ${this.rules.name}${s && s.fast_ms ? `, ${(s.fast_ms / 1000).toFixed(1)} s to draw` : ''}.`);
+      if (!b.live) this.tell(`the badge shows ${this.rules.name}${s && s.fast_ms ? `, ${(s.fast_ms / 1000).toFixed(1)} s to draw` : ''}.`);
     });
   }
 
