@@ -4,10 +4,10 @@ Apps and crowd games for the 2026 Hackaday Supercon "Billboard" badge: an ESP32-
 
 The badge shows my hack.build logo and a slide show of my capsule machine. Then it turns into a screen for a room full of people. Phones are the controllers, the badge is the slow public billboard, and a projector view handles the big room.
 
-- [Play](https://hackbuild.github.io/hackbuild-supercon-badge/play) with your phone. The badge's QR code takes you there with the room filled in.
-- [Host crowd games](https://hackbuild.github.io/hackbuild-supercon-badge/host) from the wearer's phone.
-- [Control the badge](https://hackbuild.github.io/hackbuild-supercon-badge/): logo, slides, messages.
-- [Preview the screens](https://hackbuild.github.io/hackbuild-supercon-badge/viewer.html) without a badge.
+- [Play](https://supercon.hack.build/play) with your phone. The badge's QR code takes you there with the room filled in.
+- [Host crowd games](https://supercon.hack.build/host) from the wearer's phone.
+- [Control the badge](https://supercon.hack.build/): logo, slides, messages.
+- [Preview the screens](https://supercon.hack.build/viewer.html) without a badge.
 
 ## The games
 
@@ -45,6 +45,7 @@ The machine needs the credit key in its `secret.h`. `python3 -I tools/credit_key
 
 Open the host page on the phone you'll carry, or a laptop by the stage. Paste the badge key once and it stays in that browser.
 
+- Install it as an app. On Android Chrome or a desktop browser, open **setup** on the host page and press **install as an app**. On an iPhone, open it in Safari, press share, then **Add to Home Screen**. The app opens straight to the host page, with shortcuts to play, projector and badge control. An installed app on iOS keeps its own storage, so paste the key once more inside it.
 - Keep the host page open with the screen on. It holds a wake lock, but iOS still pauses a page when the phone locks.
 - Open **projector view** for the room. It shows the game large and in color, the join QR and the leaderboard.
 - The room code comes from the badge key, so a QR you print keeps working all weekend.
@@ -85,7 +86,10 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
     docs/lib/           relay connection, badge link, host engine, sealing, credits, drawing kit
     docs/games/<id>/    rules.js on the host, screen.js for badge and projector, phone.js for players
     docs/parts/         the footprints and pinouts, CC-BY-SA 4.0 from KiCad
+    docs/sw.js          the service worker: network first, so a deploy shows up on the next load
+    docs/manifest.webmanifest, docs/icons/   what makes the site installable
     tools/deploy.py     copies everything to the badge and hooks it into stock main.py
+    tools/icons.py      draws the app icons
     tools/parts/        builds the parts deck from KiCad
     tools/loadtest/     simulated phones and a stand-in badge
     tools/test/         rule tests
@@ -137,6 +141,10 @@ Measured on one badge:
 | 6 KB image over the relay | 1.8 s |
 
 Fast mode uses the short waveform Hackaday ships in `data/rendered_luts.py`. It has no red, so red draws as black. Live ink and reels run single passes with the booster left on between them, then a clean three pass refresh when things go quiet.
+
+Where the time goes: the SPI transfer of a full frame is about 70 ms. The rest of a pass is the waveform. The shipped table runs its full drive on every pixel, every pass, so the panel flashes and one pass sits near 1.25 s.
+
+The next step is a change-only table. The Spiral app in the official badge repo writes a 20-frame table to register 0xB0. The table it uses comes from the old and new bits of each pixel, so pixels that stay put sit at ground and only the ones that change get driven. Its author reports about 0.65 s per step, 580 ms of panel drive plus the transfer. That number is the author's, not mine yet. Twenty frames is the floor for this controller's table format, so expect a fraction of a second per update. Milliseconds aren't on the table: the pigment needs that long to move.
 
 ## Credits and licences
 

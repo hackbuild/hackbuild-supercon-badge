@@ -52,6 +52,7 @@ class Clasp:
         self.host, self.port, self.name = host, port, name
         self.reader = self.writer = None
         self.on_message = None  # called as on_message(address, value)
+        self._lock = aio.Lock()
 
     async def connect(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -103,8 +104,14 @@ class Clasp:
         n = len(frame)
         # Client to server WebSocket frames are masked. A zero mask leaves the payload as is.
         head = bytes((0x82, 0x80 | n)) if n < 126 else bytes((0x82, 0x80 | 126)) + struct.pack(">H", n)
-        self.writer.write(head + b"\0\0\0\0" + frame)
-        await self.writer.drain()
+        await self._write(head + b"\0\0\0\0" + frame)
+
+    async def _write(self, data):
+        # The reader answers pings while the writer task sends. The stream keeps one pending buffer,
+        # so two drains at once resend or drop bytes and corrupt the WebSocket framing.
+        async with self._lock:
+            self.writer.write(data)
+            await self.writer.drain()
 
     async def _read_ws(self):
         """Reads one whole binary WebSocket message, answering control frames on the way."""
@@ -120,8 +127,7 @@ class Clasp:
             if op == 0x8:
                 raise OSError("relay closed")
             if op == 0x9:
-                self.writer.write(bytes((0x8A, 0x80 | n)) + b"\0\0\0\0" + body)
-                await self.writer.drain()
+                await self._write(bytes((0x8A, 0x80 | n)) + b"\0\0\0\0" + body)
             elif op in (0x0, 0x1, 0x2):
                 data = data + body if data else body
                 if fin:

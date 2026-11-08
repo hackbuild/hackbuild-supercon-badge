@@ -1,5 +1,6 @@
 // Snake by committee: the room votes a direction every turn and the majority moves the snake.
-// A turn ends early when one direction has 80 percent of at least three votes.
+// A turn ends early when one direction has 80 percent of the votes and at least three people, and
+// half the room, have voted.
 
 export const COLS = 15, ROWS = 12;
 const DIRS = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
@@ -62,7 +63,7 @@ export default {
   input: {
     dir(ctx, pid, msg) {
       const s = ctx.state;
-      if (s.over || msg.turn !== s.turn || !DIRS[msg.d]) return null;
+      if (s.over || msg.turn !== s.turn || typeof msg.d !== 'string' || !Object.hasOwn(DIRS, msg.d)) return null;
       const old = s.voted[pid];
       if (old === msg.d) return null;
       if (old) s.tally[old]--;
@@ -74,7 +75,11 @@ export default {
 
   tick(ctx) {
     const s = ctx.state, t = s.tally, n = t.U + t.D + t.L + t.R;
-    if (n >= 3 && Math.max(t.U, t.D, t.L, t.R) / n >= 0.8 && s.until - ctx.now > 1250) s.until = ctx.now;
+    // With nobody here the snake waits: it would run into a wall and redraw the e-paper every turn.
+    if (!ctx.active.length) { s.until = ctx.now + ctx.cfg.turnS * 1000; return false; }
+    // Half the room has to have voted, or the first three phones to tap would steer a crowd.
+    const quorum = Math.max(3, Math.ceil(ctx.active.length / 2));
+    if (n >= quorum && Math.max(t.U, t.D, t.L, t.R) / n >= 0.8 && s.until - ctx.now > 1250) s.until = ctx.now;
     if (ctx.now < s.until) return false;
     if (s.over) { if (++s.overTurns >= 2) reset(s); } else step(ctx, s);
     s.until = ctx.now + ctx.cfg.turnS * 1000;

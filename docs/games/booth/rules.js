@@ -49,8 +49,10 @@ export default {
     const s = ctx.state;
     let msg;
     try { msg = JSON.parse(text); } catch (e) { return null; }
-    if (typeof msg.img !== 'string' || msg.img.length > MAX_IMG || !msg.consent) return null;
-    for (const p of s.photos) if (p.pid === pid && p.status === 'pending') drop(ctx, s, p, 'replaced');
+    if (!msg || typeof msg.img !== 'string' || !msg.img || msg.img.length > MAX_IMG || !msg.consent) return null;
+    // A host that reconnects is handed every stored upload again; a picture it already holds is not a new one.
+    if (s.photos.some(p => p.pid === pid && p.img === msg.img)) return null;
+    for (const p of s.photos) if (p.pid === pid && (p.status === 'pending' || p.status === 'approved')) drop(ctx, s, p, 'replaced');
     const p = { id: s.next++, pid, img: msg.img, at: ctx.now, status: 'pending', w: 0, n: 0, shown: false };
     s.photos.push(p);
     if (ctx.cfg.autoApprove) approve(ctx, s, p);
@@ -95,15 +97,16 @@ export default {
   you(ctx, pid) {
     const s = ctx.state;
     const mine = [...s.photos].reverse().find(p => p.pid === pid);
-    const v = s.votes[pid] || (s.votes[pid] = { k: 0, pair: pairIds(s, pid, 0) });
-    // A pair that lost a photo to deletion is drawn again.
-    if (v.pair.some(id => !entry(s, id) || entry(s, id).status !== 'approved')) v.pair = v.k < VOTES_EACH ? pairIds(s, pid, v.k) : [];
+    const v = s.votes[pid] || (s.votes[pid] = { k: 0, pair: [] });
+    // An empty pair is drawn again once photos arrive, and a pair that lost a photo to deletion is too.
+    const stale = v.pair.some(id => !entry(s, id) || entry(s, id).status !== 'approved');
+    if (v.k < VOTES_EACH && (!v.pair.length || stale)) v.pair = pairIds(s, pid, v.k);
     return { mine: mine ? mine.status : 'none', k: v.k, left: VOTES_EACH - v.k, pair: v.pair };
   },
 
   youKey(ctx, pid) {
     const s = ctx.state, mine = [...s.photos].reverse().find(p => p.pid === pid), v = s.votes[pid];
-    return `${s.reigns}.${mine ? mine.status : ''}.${v ? `${v.k}:${v.pair.join('-')}` : 0}.${pool(s).length > 1}`;
+    return `${s.reigns}.${mine ? mine.status : ''}.${v ? `${v.k}:${v.pair.join('-')}` : 0}.${pool(s).length}`;
   },
 
   badge: {

@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
 <title>Crowd Games Stage</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/ui.css">
@@ -38,16 +46,21 @@ ol{margin:0;padding:0;list-style:none;font:clamp(14px,1.3vw,24px)/1.5 var(--mono
     <ol id="top"></ol>
   </aside>
 </div>
-<div id="off" hidden>reconnecting</div>
+<div id="off" role="status">connecting to the relay</div>
 
 <script type="module">
 import { Relay } from './lib/relay.js';
-import { paths, joinUrl, PUBLIC_BASE } from './lib/protocol.js';
+import { paths, joinUrl, roomCode, shareBase } from './lib/protocol.js';
 import * as S from './lib/screen.js';
 import { gameMeta, screenFor } from './games/registry.js';
 
 const $ = id => document.getElementById(id);
-const room = (location.hash.slice(1).toUpperCase().match(/^[A-Z0-9]{4}/) || [''])[0];
+let room = (location.hash.slice(1).toUpperCase().match(/^[A-Z0-9]{4}/) || [''])[0];
+// An installed shortcut opens this page with no room. The key saved by the host page names it.
+if (!room) {
+  try { const key = localStorage.getItem('hackbuild-badge.key'); if (key) room = await roomCode(key); } catch (e) { /* no saved key */ }
+}
+if (!room) { location.replace('host.html'); await new Promise(() => {}); }
 const p = paths(room);
 const c = $('screen').getContext('2d');
 const ink = Object.assign(document.createElement('canvas'), { width: S.W, height: S.H });
@@ -75,14 +88,18 @@ function draw() {
 }
 
 async function onStage(value) {
-  try { stage = JSON.parse(value); } catch (e) { return; }
-  if (stage.kind !== kind) {
-    kind = stage.kind || '';
-    screen = kind ? await screenFor(kind) : null;
+  let incoming;
+  try { incoming = JSON.parse(value); } catch (e) { return; }
+  const next = incoming.kind || '';
+  if (next !== kind) {
+    // The model, kind and screen change together, so a redraw never pairs one game's screen with another's model.
+    try { screen = next ? await screenFor(next) : null; } catch (e) { $('off').textContent = `${next} did not load. reload this page.`; $('off').hidden = false; return; }
+    kind = next;
     inkFresh = true;
     ic.fillStyle = '#fff';
     ic.fillRect(0, 0, S.W, S.H);
   }
+  stage = incoming;
   $('game').textContent = kind ? gameMeta(kind).name : 'waiting for a game';
   $('how').textContent = kind ? gameMeta(kind).howto : 'scan the code with your phone camera to join.';
   const url = screen && screen.overlay ? screen.overlay(stage.model) : '';
@@ -95,10 +112,10 @@ async function onStage(value) {
 }
 
 await S.loadFonts();
-showJoin(joinUrl(room, location.hostname.endsWith('github.io') ? PUBLIC_BASE : new URL('.', location.href).href));
+showJoin(joinUrl(room, shareBase()));
 const relay = new Relay('hack.build stage');
 relay.onUp = () => { $('off').hidden = true; };
-relay.onDown = () => { $('off').hidden = false; };
+relay.onDown = () => { $('off').textContent = 'reconnecting'; $('off').hidden = false; };
 relay.on(p.stage, onStage);
 relay.on(p.view, v => { try { view = JSON.parse(v); viewAt = Date.now(); epoch = view.epoch; } catch (e) { /* not a view */ } });
 relay.on(p.live, v => {
@@ -116,6 +133,21 @@ relay.on(p.media('ink'), url => {
   img.src = String(url);
 });
 relay.start();
+
+// A projector that dims or sleeps loses the room. The browser drops the lock whenever the page is
+// hidden, so it is asked for again on return.
+let wake = null;
+async function keepAwake() {
+  if (wake || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  try {
+    const lock = await navigator.wakeLock.request('screen');
+    lock.addEventListener('release', () => { if (wake === lock) wake = null; });
+    wake = lock;
+  } catch (e) { /* refused on low battery or by the browser */ }
+}
+document.addEventListener('visibilitychange', keepAwake);
+keepAwake();
+
 setInterval(() => {
   tick++;
   if (kind === 'cinema') draw();

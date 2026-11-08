@@ -18,7 +18,10 @@ if len(sys.argv) > 1:
     path = pathlib.Path(sys.argv[1])
     text = path.read_text()
     line = f'#define CREDIT_KEY "{credit}"'
-    text = re.sub(r"#define CREDIT_KEY \"[0-9a-f]*\"", line, text) if "CREDIT_KEY" in text else text.rstrip() + "\n" + line + "\n"
+    # Any existing value is replaced, a placeholder included, so the message below is never a no-op.
+    text, found = re.subn(r"^#define CREDIT_KEY\b.*$", line, text, flags=re.M)
+    if not found:
+        text = text.rstrip() + "\n" + line + "\n"
     path.write_text(text)
     print("wrote CREDIT_KEY into", path)
 else:

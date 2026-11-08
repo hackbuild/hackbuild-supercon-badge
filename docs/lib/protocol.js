@@ -16,7 +16,13 @@
 //   phone        beat                 emit     liveness, payload is the pid
 
 export const PROTOCOL = 2;
-export const PUBLIC_BASE = 'https://hackbuild.github.io/hackbuild-supercon-badge/';
+export const PUBLIC_BASE = 'https://supercon.hack.build/';
+
+// Links a phone can follow from anywhere. A local copy of the site links to itself instead.
+export function shareBase() {
+  const h = location.hostname;
+  return h === 'supercon.hack.build' || h.endsWith('github.io') ? PUBLIC_BASE : new URL('.', location.href).href;
+}
 
 export function paths(code) {
   const P = `/hb/play/${code}`;

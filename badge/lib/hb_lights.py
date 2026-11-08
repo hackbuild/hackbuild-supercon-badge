@@ -28,6 +28,12 @@ def pulse():
     _start()
 
 
+def resume():
+    """Play took the screen. A countdown sent while another app was showing keeps draining."""
+    if _until and time.ticks_diff(_until, time.ticks_ms()) > 0:
+        _start()
+
+
 def off():
     global _until, _pulse_until
     _until = _pulse_until = 0
@@ -37,7 +43,8 @@ def off():
 
 def _start():
     global _task
-    if _task is None:
+    # The loop clears the bar when it ends, which would wipe another app's LEDs.
+    if _task is None and hb_state.status["app"] == "play":
         _task = aio.create_task(_loop())
 
 

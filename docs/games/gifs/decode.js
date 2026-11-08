@@ -2,6 +2,7 @@
 // gifuct-js (MIT) parses the file in any browser, Safari included.
 import { parseGIF, decompressFrames } from 'https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm';
 import { dither, packBits } from '../../lib/screen.js';
+import { pickFrames } from './pick.js';
 
 // 240 by 168 is the panel's shape at a quarter of its size: coarse dots that compress small and
 // transfer fast, which suits a meme better than a sharp picture would.
@@ -27,12 +28,8 @@ export async function decode(source, { maxFrames = 12, halftone = true } = {}) {
   const small = Object.assign(document.createElement('canvas'), { width: FW, height: FH });
   const sc = small.getContext('2d', { willReadFrequently: true });
 
-  // Spread the picked frames over the GIF's own timing, not its frame count.
   const total = raw.reduce((n, f) => n + (f.delay || 100), 0);
-  const want = Math.min(maxFrames, raw.length);
-  const picks = new Set();
-  let t = 0;
-  raw.forEach((f, i) => { if (picks.size < want && t >= (picks.size * total) / want) picks.add(i); t += f.delay || 100; });
+  const picks = pickFrames(raw.map(f => f.delay), maxFrames);
 
   const frames = [];
   let saved = null;

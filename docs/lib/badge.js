@@ -43,7 +43,9 @@ export class Badge {
     this.lastState = 0;
     this.queue = Promise.resolve();
     this.nonceWaiters = [];
-    this.ackWaiter = null;
+    this.ackWaiters = new Set();
+    this.xfer = 0;
+    this.xferId = '';
     this.inkSession = Math.random().toString(36).slice(2, 8);
     this.inkSeq = 0;
     this.onState = () => {};
@@ -84,8 +86,9 @@ export class Badge {
       this.onState();
     } else if (address === `${this.base}/ack`) {
       const [id, n] = String(value).split(':');
+      if (id !== this.xferId || !Number.isInteger(Number(n))) return;
       this.acked.set(id, Math.max(this.acked.has(id) ? this.acked.get(id) : -2, Number(n)));
-      if (this.ackWaiter) this.ackWaiter();
+      [...this.ackWaiters].forEach(f => f());
     } else if (address === `${this.base}/press` && (value === 'a' || value === 'b')) {
       this.onPress(value);
     }
@@ -122,36 +125,53 @@ export class Badge {
 
   play(mode, extra = {}) { return this.command('play', { mode, ...extra }); }
 
-  // Resolves when the badge has acked chunk n or later, or after ms with false.
+  // Resolves when the badge has acked chunk n or later, or after ms with whether it did.
   _waitAcked(id, n, ms) {
     return new Promise(resolve => {
       const done = () => (this.acked.get(id) ?? -2) >= n;
       if (done()) { resolve(true); return; }
-      const t = setTimeout(() => { this.ackWaiter = null; resolve(false); }, ms);
-      this.ackWaiter = () => { if (done()) { clearTimeout(t); this.ackWaiter = null; resolve(true); } };
+      const finish = ok => { clearTimeout(t); this.ackWaiters.delete(check); resolve(ok); };
+      const check = () => { if (done()) finish(true); };
+      const t = setTimeout(() => finish(done()), ms);
+      this.ackWaiters.add(check);
     });
   }
 
   // Sends a file in chunks, a few at a time. When the acks stall, it goes back to the first chunk
-  // the badge has not acked and sends from there, so a dropped message costs one pause.
+  // the badge has not acked and sends from there, so a dropped message costs one pause. The badge
+  // holds one transfer and a new start replaces it, so a newer send or cancel() ends this loop.
   async _transfer(cmd, bytes, extra) {
-    const sha = hex(await crypto.subtle.digest('SHA-256', bytes));
+    const mine = ++this.xfer;
     const id = Math.random().toString(36).slice(2, 8);
-    const total = Math.ceil(bytes.length / CHUNK);
-    await this.command(cmd, { id, size: bytes.length, sha, ...extra });
-    if (!await this._waitAcked(id, -1, 10000)) throw new Error('the badge did not start the transfer.');
-    let sent = 0, stalls = 0;
-    const send = i => this.relay.emit(`${this.base}/chunk`, `${id}:${i}:${b64(bytes.subarray(i * CHUNK, (i + 1) * CHUNK))}`);
-    while ((this.acked.get(id) ?? -2) < total - 1) {
-      const acked = this.acked.get(id) ?? -1;
-      if (sent <= acked) sent = acked + 1;
-      while (sent < total && sent - acked <= WINDOW) send(sent++);
-      if (await this._waitAcked(id, acked + 1, STALL_MS)) { stalls = 0; continue; }
-      if (++stalls > 4) throw new Error('the badge stopped answering during the send.');
-      sent = (this.acked.get(id) ?? -1) + 1;
+    this.xferId = id;
+    const current = () => { if (mine !== this.xfer) throw new Error('a newer send replaced this one.'); };
+    try {
+      const sha = hex(await crypto.subtle.digest('SHA-256', bytes));
+      const total = Math.ceil(bytes.length / CHUNK);
+      await this.command(cmd, { id, size: bytes.length, sha, ...extra });
+      current();
+      if (!await this._waitAcked(id, -1, 10000)) throw new Error('the badge did not start the transfer.');
+      current();
+      let sent = 0, stalls = 0;
+      const send = i => this.relay.emit(`${this.base}/chunk`, `${id}:${i}:${b64(bytes.subarray(i * CHUNK, (i + 1) * CHUNK))}`);
+      while ((this.acked.get(id) ?? -2) < total - 1) {
+        const acked = this.acked.get(id) ?? -1;
+        if (sent <= acked) sent = acked + 1;
+        while (sent < total && sent - acked <= WINDOW) send(sent++);
+        const moved = await this._waitAcked(id, acked + 1, STALL_MS);
+        current();
+        if (moved) { stalls = 0; continue; }
+        if (++stalls > 4) throw new Error('the badge stopped answering during the send.');
+        sent = (this.acked.get(id) ?? -1) + 1;
+      }
+    } finally {
+      if (this.xferId === id) this.xferId = '';
+      this.acked.delete(id);
     }
-    this.acked.delete(id);
   }
+
+  // Stops the send in progress, so chunks of a screen nobody wants stop going out.
+  cancel() { this.xfer++; }
 
   // A compressed screen. Resolves once every chunk is acked, before the panel has drawn it.
   // to: 'play' sends it to the games app, then: 'ink' makes it the page live ink draws on.

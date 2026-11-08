@@ -15,10 +15,14 @@ from lib.epd import display
 
 W, H = 960, 672
 SIZES = (3, 6, 12)
+# Strokes arrive from phones through the host. A point far off the page would otherwise keep the
+# only event loop in a drawing loop for minutes.
+LIMIT = 1024
 QUICK_BEFORE_CLEAN = 12
 QUIET_CLEAN_MS = 4000
 
 _fb = framebuf.FrameBuffer(display._framebuffer_black, W, H, framebuf.MONO_HLSB)
+_fb_red = framebuf.FrameBuffer(display._framebuffer_red, W, H, framebuf.MONO_HLSB)
 active = False
 _dirty = False
 _quick = 0
@@ -44,10 +48,16 @@ def stop():
     active = False
 
 
+def stopping():
+    """True from stop() until the loop has powered the booster down. A screen started before then
+    would run its refresh against that power down."""
+    return _task is not None and not active
+
+
 def clear():
     global _dirty, _quick
-    display._framebuffer_black[:] = bytes(len(display._framebuffer_black))
-    display._framebuffer_red[:] = bytes(len(display._framebuffer_red))
+    _fb.fill(0)
+    _fb_red.fill(0)
     _dirty = True
     # A wiped page gets the clean refresh, so the old drawing leaves no ghost.
     _quick = QUICK_BEFORE_CLEAN
@@ -77,6 +87,7 @@ def apply(batch):
 
 
 def _segment(x0, y0, x1, y1, size, color):
+    x0, y0, x1, y1 = (max(-LIMIT, min(LIMIT, n)) for n in (x0, y0, x1, y1))
     half = size // 2
     dx, dy = x1 - x0, y1 - y0
     steps = max(abs(dx), abs(dy)) // max(1, half) + 1
@@ -110,5 +121,7 @@ async def _loop():
                 await aio.sleep_ms(30)
     finally:
         active = False
-        _task = None
-        await hb_fast.cool()
+        try:
+            await hb_fast.cool()
+        finally:
+            _task = None

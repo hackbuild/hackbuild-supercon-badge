@@ -6,18 +6,22 @@ import { PRESETS, preset } from './presets.js';
 
 const COOLDOWN_MS = 30_000;
 const MAX_QUEUE = 12;
+const LOAD_GIVE_UP_MS = 60_000;
 
+// The job keeps its own handle on the state: the room may have moved to another game by the time
+// a decode finishes, and only the newest request may land.
 function play(ctx, item) {
-  const s = ctx.state;
+  const s = ctx.state, id = (s.loadId || 0) + 1;
+  s.loadId = id;
   s.loading = item.title;
+  s.loadAt = ctx.now;
   ctx.job(async c => {
     try {
       const { decode } = await import('./decode.js');
       const d = await decode(item.file || item.url, { maxFrames: c.cfg.frames, halftone: c.cfg.halftone });
-      const st = c.state;
-      st.now = { id: ++st.played, title: item.title, url: item.url || '', by: item.by || '', frames: d.frames, w: d.w, h: d.h, at: c.now };
+      if (s.loadId === id) s.now = { id: ++s.played, title: item.title, url: item.url || '', by: item.by || '', frames: d.frames, w: d.w, h: d.h, at: c.now };
     } finally {
-      c.state.loading = '';
+      if (s.loadId === id) s.loading = '';
     }
   });
 }
@@ -52,6 +56,8 @@ export default {
 
   tick(ctx) {
     const s = ctx.state;
+    // A decode that never came back, from a fetch that hung or a page reloaded mid way, must not hold the queue.
+    if (s.loading && ctx.now - (s.loadAt || 0) > LOAD_GIVE_UP_MS) { s.loading = ''; return true; }
     if (s.loading) return false;
     const due = !s.now || ctx.now - s.now.at > ctx.cfg.holdS * 1000;
     if (due && s.queue.length) { next(ctx); return true; }
@@ -85,7 +91,8 @@ export default {
 
   controls: () => [
     { label: 'next gif', run: ctx => next(ctx) },
-    { label: 'stop the gif', run: ctx => { ctx.state.now = null; } },
+    // A decode still in flight is dropped too, or the gif would come back after the stop.
+    { label: 'stop the gif', run: ctx => { const s = ctx.state; s.now = null; s.loading = ''; s.loadId = (s.loadId || 0) + 1; } },
   ],
 
   headline(ctx) { const s = ctx.state; return { big: s.loading ? 'loading a gif' : s.now ? s.now.title : 'pick a gif below', small: s.queue.length ? `${s.queue.length} queued` : 'tap one to play it now' }; },

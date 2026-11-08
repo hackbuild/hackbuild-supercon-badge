@@ -241,3 +241,187 @@ test('gifs: phones ask from the presets with a cooldown, the queue plays in orde
   const off = room('gifs', gifs, [a], { requests: false });
   assert.match(off.input(a, 'request', { id: 'cage' }).note, /off/);
 });
+
+test('registry: the input table answers only to the handlers a game defines', async () => {
+  const { rulesFor } = await import('../../docs/games/registry.js');
+  const rules = await rulesFor('snake');
+  assert.equal(typeof rules.input.dir, 'function');
+  for (const key of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) assert.equal(rules.input[key], undefined, key);
+});
+
+test('snake: prototype keys are not directions, and three taps do not steer a crowd', async () => {
+  const snake = await load('snake');
+  const people = ids(20);
+  const r = room('snake', snake, people);
+  for (const d of ['constructor', '__proto__', 'toString', 'hasOwnProperty', ['U'], '', 'UD']) assert.equal(r.input(people[0], 'dir', { turn: 0, d }), null);
+  assert.deepEqual(r.state.tally, { U: 0, D: 0, L: 0, R: 0 });
+  assert.deepEqual(r.state.voted, {});
+  people.slice(0, 3).forEach(p => r.input(p, 'dir', { turn: 0, d: 'D' }));
+  r.wait(10);
+  assert.equal(r.state.turn, 0, 'three of twenty do not end the turn');
+  people.slice(3, 10).forEach(p => r.input(p, 'dir', { turn: 0, d: 'D' }));
+  r.wait(10);
+  assert.equal(r.state.turn, 1, 'half the room ends it');
+});
+
+test('hill: skipping a prompt opens a new round, so votes from the old phase are refused', async () => {
+  const hill = await load('hill');
+  const [a, b] = ids(2);
+  const r = room('hill', hill, [a, b]);
+  r.input(a, 'answer', { r: 1, a: 'answer from a' });
+  r.input(b, 'answer', { r: 1, a: 'answer from b' });
+  r.wait(100); r.wait(3100);
+  assert.equal(r.state.phase, 'vote');
+  hill.controls()[1].run(r.ctx());
+  assert.equal(r.state.phase, 'answer');
+  assert.equal(r.state.round, 2);
+  assert.match(r.input(a, 'answer', { r: 1, a: 'late from a' }).note, /closed/);
+});
+
+test('booth: a voter who arrived before the photos gets a pair, and one picture is one entry', async () => {
+  const booth = await load('booth');
+  const [a, b, c, d] = ids(4);
+  const r = room('booth', booth, [a, b, c, d]);
+  const up = (p, img) => booth.upload(r.ctx(), p, JSON.stringify({ img, consent: true }));
+  const approveAll = () => { for (const p of booth.pending(r.ctx())) booth.decide(r.ctx(), p.id, true); };
+  up(a, 'AAAA');
+  approveAll();
+  r.wait(10);
+  assert.ok(r.state.reign, 'the first approved photo takes the badge');
+  assert.deepEqual(r.you(d).pair, []);
+  up(b, 'BBBB');
+  up(c, 'CCCC');
+  approveAll();
+  assert.equal(r.you(d).pair.length, 2, 'the empty pair is drawn again once photos arrive');
+  assert.equal(up(b, 'BBBB'), null, 'an upload the relay hands over again is not a second photo');
+  assert.equal(r.state.photos.filter(p => p.pid === b && p.img).length, 1);
+  const first = r.state.photos.find(p => p.pid === b);
+  up(b, 'DDDD');
+  assert.equal(first.status, 'replaced', 'a new photo replaces an approved one');
+  assert.equal(r.media[`booth.${first.id}`], '');
+  assert.equal(r.state.photos.filter(p => p.pid === b && p.status === 'pending').length, 1);
+  assert.equal(up(b, 7), null);
+  assert.equal(up(b, ''), null);
+  assert.equal(booth.upload(r.ctx(), b, 'null'), null);
+});
+
+test('cinema: junk frames score nothing, replays get fresh keys, and the premiere queue is capped', async () => {
+  const cinema = await load('cinema');
+  const [a] = ids(1);
+  const r = room('cinema', cinema, [a]);
+  r.input(a, 'claim', {});
+  const held = r.you(a).claim;
+  for (const bits of ['', '***', 'AAAA'.repeat(100), 7, null]) r.input(a, 'frame', { reel: held.reel, slot: held.slot, bits });
+  assert.equal(r.scores[a] || 0, 0);
+  assert.ok(r.you(a).claim, 'the claim is still held');
+  for (let i = 0; i < 12 * 12; i++) {
+    r.input(a, 'claim', {});
+    const c = r.you(a).claim;
+    r.input(a, 'frame', { reel: c.reel, slot: c.slot, bits: 'AAAA' });
+  }
+  assert.equal(r.state.queue.length, 8);
+  assert.equal(r.state.queue.at(-1).id, 12, 'the newest reels are kept');
+  r.wait(1);
+  const replay = () => { cinema.controls()[1].run(r.ctx()); r.wait(1); return r.state.premiere.id; };
+  const [x, y] = [replay(), replay()];
+  assert.notEqual(x, y);
+  assert.ok(x > 12 && y > 12, 'a replay never reuses the key of a reel that has not played');
+});
+
+test('gifs: a decode that never returns, or lands late, cannot hold the queue or the screen', async () => {
+  const gifs = await load('gifs');
+  const [a] = ids(1);
+  const r = room('gifs', gifs, [a]);
+  gifs.playNow(r.ctx(), { title: 'slow', url: 'x' });
+  assert.equal(r.state.loading, 'slow');
+  gifs.enqueue(r.ctx(), { title: 'next', url: 'y' });
+  assert.equal(r.wait(1000), false, 'still loading');
+  assert.equal(r.state.queue.length, 1);
+  assert.equal(r.wait(61_000), true, 'gives up on the decode');
+  assert.equal(r.state.loading, '');
+  r.wait(250);
+  assert.equal(r.state.loading, 'next');
+  await r.jobs[0](r.ctx()).catch(() => {});
+  assert.equal(r.state.loading, 'next', 'the old decode does not clear the new one');
+  assert.equal(r.state.now, null, 'and cannot put its picture up');
+});
+
+test('gifs: a short gif keeps every frame, and a held frame is not lost to sampling', async () => {
+  const { pickFrames } = await import('../../docs/games/gifs/pick.js');
+  assert.deepEqual([...pickFrames([100, 100, 100, 100, 3000], 10)], [0, 1, 2, 3, 4]);
+  const uniform = [...pickFrames(Array(30).fill(100), 10)];
+  assert.equal(uniform.length, 10);
+  assert.equal(uniform[0], 0);
+  const held = [...pickFrames([...Array(19).fill(50), 3000], 10)];
+  assert.ok(held.includes(19), 'the long final frame is kept');
+  assert.ok(held.length > 3 && held.length <= 10);
+  assert.ok(held.every((f, i) => f >= 0 && f < 20 && (i === 0 || f > held[i - 1])));
+});
+
+test('parts: a removed part is skipped, and parts sharing a footprint share their answers', async () => {
+  const parts = await load('parts');
+  const [a, b] = ids(2);
+  const r = room('parts', parts, [a, b]);
+  const extra = id => ({ id, answer: id.toUpperCase(), accept: [], chip: '', fact: '', pads: [['1', 0, 0, 1, 1, 'r', 0]], lines: [], pins: {} });
+  const skip = () => parts.controls()[1].run(r.ctx());
+  parts.addPart(r.ctx(), extra('extra-1'));
+  r.state.order = ['extra-1', 'dip8'];
+  r.state.at = 0;
+  skip();
+  assert.equal(r.state.partId, 'extra-1');
+  const round = r.state.round;
+  parts.removePart(r.ctx(), 'extra-1');
+  assert.notEqual(r.state.partId, 'extra-1', 'the part on the badge moves on when it is removed');
+  assert.equal(r.state.round, round + 1);
+  parts.addPart(r.ctx(), extra('extra-2'));
+  r.state.order = ['extra-2', 'dip14'];
+  r.state.at = 0;
+  parts.removePart(r.ctx(), 'extra-2');
+  skip();
+  assert.equal(r.state.partId, 'dip14', 'a removed part ahead in the order is passed over');
+
+  r.state.order = ['cdp1802'];
+  r.state.at = 0;
+  skip();
+  assert.equal(r.state.partId, 'cdp1802');
+  r.now += DEFAULTS.parts.hintS * 1000;
+  assert.ok(!r.view().choices.includes('DIP-40'), 'the footprint twin is never offered as a wrong choice');
+  assert.ok(r.input(a, 'guess', { r: r.state.round, text: 'DIP-40' }).changed);
+  r.state.order = ['dip40'];
+  r.state.at = 0;
+  skip();
+  assert.ok(r.input(b, 'guess', { r: r.state.round, text: 'cosmac' }).changed);
+});
+
+test('snake: with nobody here the snake waits instead of playing itself to death', async () => {
+  const snake = await load('snake');
+  const r = room('snake', snake, []);
+  for (let i = 0; i < 40; i++) assert.equal(r.wait(DEFAULTS.snake.turnS * 1000 + 1), false);
+  assert.equal(r.state.turn, 0);
+  assert.equal(r.state.over, false);
+});
+
+test('snipe: a phone that keeps guessing is cut off for the round, and gets a fresh start in the next', async () => {
+  const snipe = await load('snipe');
+  const [a, b] = ids(2);
+  const r = room('snipe', snipe, [a, b]);
+  snipe.badge.shown(r.ctx(), `EPOCH1.${r.state.round}`);
+  const code = r.state.code;
+  for (let i = 0; i < 5; i++) assert.match(r.input(a, 'claim', { c: 'ZZZZ' }).note, /not the code/);
+  assert.match(r.input(a, 'claim', { c: code }).note, /too many/);
+  assert.equal(r.scores[a], undefined);
+  assert.ok(r.input(b, 'claim', { c: code }).changed, 'other phones are not affected');
+  r.wait(DEFAULTS.snipe.holdS * 1000 + 1);
+  snipe.badge.shown(r.ctx(), `EPOCH1.${r.state.round}`);
+  assert.ok(r.input(a, 'claim', { c: r.state.code }).changed);
+});
+
+test('gifs: stop drops a decode still in flight, so the gif does not come back after it', async () => {
+  const gifs = await load('gifs');
+  const r = room('gifs', gifs, ids(1));
+  gifs.playNow(r.ctx(), { title: 'slow', url: 'x' });
+  const id = r.state.loadId;
+  gifs.controls()[1].run(r.ctx());
+  assert.equal(r.state.loading, '');
+  assert.notEqual(r.state.loadId, id, 'the decode in flight no longer owns the screen');
+});

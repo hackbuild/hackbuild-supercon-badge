@@ -8,7 +8,7 @@ import asyncio as aio
 import struct
 
 from apps.base_app import BaseApp
-from lib import hb_fast, hb_ink, hb_state
+from lib import hb_fast, hb_ink, hb_lights, hb_state
 from lib.button import UserA, UserB
 
 JOIN_PATH = "/data/hb/join.z"
@@ -48,13 +48,14 @@ class PlayApp(BaseApp):
             self.request = False
             self.pending = True
             hb_state.remember("play")
+            hb_lights.resume()
         if UserA.pressed() and self.on_press:
             self.on_press("a")
         if UserB.pressed() and self.on_press:
             self.on_press("b")
         if self.mode not in ("ink", "inkframe") and hb_ink.active:
             hb_ink.stop()
-        if not self.pending or self.reel_task is not None or not hb_state.panel_idle():
+        if not self.pending or self.reel_task is not None or hb_ink.stopping() or not hb_state.panel_idle():
             return
         self.pending = False
         if self.mode == "ink":
@@ -83,10 +84,14 @@ class PlayApp(BaseApp):
             with open(REEL_PATH, "rb") as f:
                 count = struct.unpack("<H", f.read(2))[0]
                 offsets = struct.unpack("<%dI" % count, f.read(4 * count))
+            if not offsets:
+                # An endless reel of no frames would never reach an await and freeze the badge.
+                return
             loop = 0
             while loops == 0 or loop < loops:
                 for i, at in enumerate(offsets):
-                    if self.gen != gen:
+                    # Leaving Play from the menu ends the reel, whose holding flag would lock out the next app.
+                    if self.gen != gen or hb_state.status["app"] != "play":
                         return
                     if not hb_state.load(REEL_PATH, at):
                         return
@@ -94,7 +99,10 @@ class PlayApp(BaseApp):
                     last = loops and loop == loops - 1 and i == count - 1
                     clean = last or (loops == 0 and shown % CLEAN_EVERY == 0)
                     hb_state.status["frame"] = i
-                    await hb_state.refresh(3 if clean else 1, stay_on=not clean)
+                    if not await hb_state.refresh(3 if clean else 1, stay_on=not clean):
+                        # With fast mode unavailable for the boot, refresh returns without awaiting,
+                        # so an endless reel would hold the only event loop.
+                        await aio.sleep_ms(1000)
                 loop += 1
         except (OSError, ValueError) as ex:
             print("play: reel failed", ex)

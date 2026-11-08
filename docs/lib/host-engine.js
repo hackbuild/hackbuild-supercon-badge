@@ -18,10 +18,16 @@ import { GAMES, rulesFor } from '../games/registry.js';
 
 const SAVE_KEY = 'hb.host.room.v2';
 const HOST_KEYS = 'hb.host.keys';
+const P256_COORD = /^[A-Za-z0-9_-]{43}$/;
 const ACTIVE_MS = 45_000;
 const VIEW_GAP_MS = 250, VIEW_GAP_BIG_MS = 500, REPUBLISH_MS = 20_000;
 const YOU_PER_TICK = 40;
 const LIVE_FLUSH_MS = 150;
+const SAVE_GAP_MS = 2000;
+// A relay socket holding more than this has stalled, so periodic publishes wait for it to drain.
+const MAX_BACKLOG = 512 * 1024;
+// A competing claim this soon after ours may be the relay's stored copy of an older owner.
+const CLAIM_GRACE_MS = 3000;
 
 export class HostEngine {
   constructor(secret, onChange) {
@@ -30,14 +36,16 @@ export class HostEngine {
     this.say = '';
     this.sayBad = false;
     this.owner = true;
+    this.doubted = false;
     this.token = Math.random().toString(36).slice(2, 10);
     this.seen = new Map();
     this.lastYou = new Map();
     this.youQueue = new Set();
     this.dirty = { view: true, board: true, save: false, stage: true };
-    this.last = { view: 0, board: 0, beat: 0, stage: 0, live: 0, ui: 0 };
+    this.last = { view: 0, board: 0, beat: 0, stage: 0, live: 0, ui: 0, save: 0 };
     this.liveQueue = [];
     this.jobs = 0;
+    this.taps = 0;
     this.pending = new Map();
     this.pipe = { busy: false, key: '', at: 0, retryAt: 0, inkMode: false, gen: 0 };
     this.frame = document.createElement('canvas');
@@ -50,7 +58,7 @@ export class HostEngine {
   async start() {
     this.code = await proto.roomCode(this.secret);
     this.p = proto.paths(this.code);
-    this.join = { url: proto.joinUrl(this.code, location.hostname.endsWith('github.io') ? proto.PUBLIC_BASE : new URL('.', location.href).href), code: this.code };
+    this.join = { url: proto.joinUrl(this.code, proto.shareBase()), code: this.code };
     this.room = this.load();
     this.keys = await seal.keypair(HOST_KEYS);
     this.publicKey = await seal.publicJwk(this.keys);
@@ -68,11 +76,12 @@ export class HostEngine {
       this.changed();
     };
     this.relay.onDown = () => this.changed();
-    // A badge whose uptime went backwards rebooted, and lost whatever it was showing.
+    // A badge whose uptime went backwards rebooted, and lost whatever it was showing and any send
+    // in progress, so that send is dropped instead of left to time out.
     let lastUp = 0;
     this.badge.onState = () => {
       const up = this.badge.state && this.badge.state.up;
-      if (up < lastUp) this.badgeBack();
+      if (up < lastUp) this.resetPipe();
       lastUp = up || 0;
       this.changed();
     };
@@ -117,6 +126,7 @@ export class HostEngine {
 
   save() {
     this.dirty.save = false;
+    this.last.save = Date.now();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.room)); } catch (e) { this.tell('this browser would not save the room. it keeps running, but a reload starts over.', true); }
   }
 
@@ -137,7 +147,9 @@ export class HostEngine {
   onOwner(value) {
     const mine = String(value) === this.token;
     // The relay's stored copy from before this page claimed the room can land just after the claim.
-    if (!mine && Date.now() - this.claimedAt < 3000) return;
+    // A host that claimed within the same seconds looks identical, so loop() claims again once the
+    // grace is over: the stored copy changes nothing, and of two live hosts the later claim wins.
+    if (!mine && Date.now() - this.claimedAt < CLAIM_GRACE_MS) { this.doubted = true; return; }
     if (mine === this.owner) return;
     this.owner = mine;
     if (!mine) this.tell('another device is hosting this room now. this page has stopped.', true);
@@ -175,7 +187,7 @@ export class HostEngine {
   active(now) {
     const out = [];
     for (const [pid, t] of this.seen) {
-      if (now - t < ACTIVE_MS) { if (!this.room.banned[pid]) out.push(pid); } else if (now - t > 900_000) this.seen.delete(pid);
+      if (now - t < ACTIVE_MS) { if (!this.room.banned[pid]) out.push(pid); } else if (now - t > 900_000) { this.seen.delete(pid); this.lastYou.delete(pid); }
     }
     return out;
   }
@@ -207,9 +219,12 @@ export class HostEngine {
     if (!proto.PID.test(pid)) return;
     let who;
     try { who = JSON.parse(value); } catch (e) { who = { name: value }; }
+    if (!who || typeof who !== 'object') who = { name: String(value) };
     const name = cleanName(who.name, pid);
     if (this.room.names[pid] !== name) { this.room.names[pid] = name; this.dirty.save = this.dirty.board = true; }
-    if (who.key && who.key.x) this.room.keys[pid] = who.key;
+    // Only a P-256 point is kept: the whole room is saved to this browser, and anyone can write who/<pid>.
+    const k = who.key;
+    if (k && P256_COORD.test(k.x) && P256_COORD.test(k.y)) this.room.keys[pid] = { kty: 'EC', crv: 'P-256', x: k.x, y: k.y };
   }
 
   onBeat(value) {
@@ -267,11 +282,20 @@ export class HostEngine {
     const c = this.room.cfg.credits;
     const given = Object.keys(this.room.credits).length;
     if (!c.on || given >= c.max || this.room.credits[pid] || this.room.banned[pid]) return false;
+    // Reserved before the first await, so wins in the same tick count against the cap and one phone
+    // never gets two tokens.
+    const entry = this.room.credits[pid] = { token: '', sealed: '', why, at: Date.now(), given: false };
     const key = this.room.keys[pid];
-    const token = await credit.makeToken(this.creditKey);
-    // Sealed to the winner's phone, so nobody watching the relay can copy it onto their own coin first.
-    const sealed = key ? await seal.seal(this.keys, key, seal.te.encode(token)) : '';
-    this.room.credits[pid] = { token, sealed, why, at: Date.now(), given: false };
+    let token;
+    try {
+      token = await credit.makeToken(this.creditKey);
+      // Sealed to the winner's phone, so nobody watching the relay can copy it onto their own coin first.
+      entry.sealed = key ? await seal.seal(this.keys, key, seal.te.encode(token)) : '';
+    } catch (e) {
+      delete this.room.credits[pid];
+      return false;
+    }
+    entry.token = token;
     this.dirty.save = true;
     this.youQueue.add(pid);
     this.tell(`${this.room.names[pid] || 'someone'} won a capsule credit, code ${credit.shortCode(token)}.`);
@@ -283,13 +307,16 @@ export class HostEngine {
   loop() {
     if (!this.owner || !this.room) return;
     const now = Date.now();
+    if (this.doubted && now - this.claimedAt >= CLAIM_GRACE_MS && this.relay.set(this.p.owner, this.token)) this.doubted = false;
     const ctx = this.room.kind && this.rules ? this.ctx(now) : null;
     if (ctx && this.rules.tick && this.rules.tick(ctx)) { this.dirty.view = this.dirty.stage = this.dirty.save = true; this.dirty.board = true; }
-    this.publish(now, ctx);
-    if (ctx) this.flushYou(ctx);
+    if (this.relay.backlog <= MAX_BACKLOG) {
+      this.publish(now, ctx);
+      if (ctx) this.flushYou(ctx);
+    }
     this.flushLive(now);
     this.pipeline(now, ctx);
-    if (this.dirty.save) this.save();
+    if (this.dirty.save && now - this.last.save >= SAVE_GAP_MS) this.save();
     if (this.dirty.ui && now - this.last.ui > 300) { this.dirty.ui = false; this.last.ui = now; this.onChange(); }
   }
 
@@ -359,7 +386,12 @@ export class HostEngine {
     if (reel && reel.key !== pipe.reelKey) {
       return this.run(async live => {
         const frames = [];
-        for (const model of reel.frames) frames.push(await zlib(this.render(model)));
+        for (const model of reel.frames) {
+          // A game switch swaps this.rules, which would draw these models with the wrong screen.
+          if (!live()) return;
+          frames.push(await zlib(this.render(model)));
+        }
+        if (!live()) return;
         this.tell(`sending a ${frames.length} frame reel to the badge.`);
         await this.badge.sendReel(reelBlob(frames), { loops: reel.loops ?? 2 });
         if (!live()) return;
@@ -408,6 +440,7 @@ export class HostEngine {
 
   resetPipe() {
     this.pipe.gen++;
+    this.badge.cancel();
     this.pipe.busy = false;
     this.pipe.key = this.pipe.reelKey = this.pipe.lightKey = '';
     this.pipe.inkMode = false;
@@ -454,7 +487,10 @@ export class HostEngine {
   async startGame(kind) {
     // A second tap on the running game must not restart it in front of a room.
     if (!this.owner || (this.room.kind === kind && this.rules)) return;
+    const tap = ++this.taps;
     const rules = await rulesFor(kind);
+    // Taps made while a game loads finish in load order, so only the last tap starts its game.
+    if (!this.owner || tap !== this.taps) return;
     if (this.rules && this.rules.stop && this.room.kind) this.rules.stop(this.ctx(Date.now()));
     this.rules = rules;
     this.room.kind = kind;

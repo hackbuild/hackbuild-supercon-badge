@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 W, H = 960, 672
-PLAY_URL = "https://hackbuild.github.io/hackbuild-supercon-badge/play"
+PLAY_URL = "https://supercon.hack.build/play"
 ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
@@ -59,7 +59,7 @@ def render(code):
     mono = font("IBMPlexMono-SemiBold.ttf", 26)
     d.text((rx, 500), "scan the code,", font=mono, fill=0)
     d.text((rx, 534), "or type the room", font=mono, fill=0)
-    d.text((rx, 568), "at hackbuild.github.io", font=font("IBMPlexMono-SemiBold.ttf", 20), fill=0)
+    d.text((rx, 568), "at supercon.hack.build", font=font("IBMPlexMono-SemiBold.ttf", 20), fill=0)
     return img
 
 

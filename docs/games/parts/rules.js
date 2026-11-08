@@ -47,14 +47,27 @@ export function matches(part, guess) {
 function partsOf(s) { return [...DATA.parts, ...(s.extra || [])]; }
 function part(s) { return partsOf(s).find(p => p.id === s.partId); }
 
+// Two parts drawn from one footprint, like the Z80 and the CDP1802 in a DIP-40, share their answers:
+// the picture is the same, so either name is right.
+function twinsOf(s, p) {
+  const shape = JSON.stringify(p.pads);
+  return partsOf(s).filter(x => x.id !== p.id && JSON.stringify(x.pads) === shape);
+}
+
 function ask(ctx, s) {
   const all = partsOf(s);
   if (!all.length) return;
-  if (!s.order.length || s.at >= s.order.length) { s.order = shuffle(all.map(p => p.id), `${ctx.epoch}.${s.round}`); s.at = 0; }
-  s.partId = s.order[s.at++];
-  const p = part(s);
+  // The order was shuffled earlier; a part the host has since removed is skipped.
+  let p = null;
+  while (!p) {
+    if (s.at >= s.order.length) { s.order = shuffle(all.map(x => x.id), `${ctx.epoch}.${s.round}`); s.at = 0; }
+    s.partId = s.order[s.at++];
+    p = part(s);
+  }
+  const twins = twinsOf(s, p);
+  s.twins = twins.map(x => x.id);
   // Three wrong choices with different answers, picked the same way for every phone.
-  const others = shuffle(all.filter(x => norm(x.answer) !== norm(p.answer)).map(x => x.answer), `${s.round}.${p.id}`)
+  const others = shuffle(all.filter(x => !s.twins.includes(x.id) && norm(x.answer) !== norm(p.answer)).map(x => x.answer), `${s.round}.${p.id}`)
     .filter((a, i, arr) => arr.indexOf(a) === i).slice(0, 3);
   const choices = shuffle([p.answer, ...others], hash32(`${p.id}.${s.round}`));
   s.choices = choices;
@@ -84,7 +97,8 @@ export default {
       const a = s.answers[pid] || (s.answers[pid] = { ok: false, tries: 0 });
       if (done(s, a)) return null;
       a.tries++;
-      if (!matches(p, clean(msg.text, 40))) return { note: a.tries >= TRIES ? 'out of guesses for this one.' : `not it. ${TRIES - a.tries} guess${TRIES - a.tries === 1 ? '' : 'es'} left.` };
+      const text = clean(msg.text, 40), right = [p, ...partsOf(s).filter(x => (s.twins || []).includes(x.id))];
+      if (!right.some(x => matches(x, text))) return { note: a.tries >= TRIES ? 'out of guesses for this one.' : `not it. ${TRIES - a.tries} guess${TRIES - a.tries === 1 ? '' : 'es'} left.` };
       const rank = s.firsts.length;
       a.ok = true;
       a.ms = ctx.now - s.askedAt;
@@ -174,6 +188,11 @@ export default {
 
   // Used by the host page's part finder.
   addPart(ctx, p) { ctx.state.extra = [...(ctx.state.extra || []).filter(x => x.id !== p.id), p]; },
-  removePart(ctx, id) { ctx.state.extra = (ctx.state.extra || []).filter(x => x.id !== id); },
+  // Removing the part on the badge moves on to the next one under a new round, so phones redraw.
+  removePart(ctx, id) {
+    const s = ctx.state;
+    s.extra = (s.extra || []).filter(x => x.id !== id);
+    if (s.partId === id) { s.round++; ask(ctx, s); }
+  },
   deck: ctx => partsOf(ctx.state),
 };

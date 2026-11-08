@@ -6,7 +6,8 @@
 // back to the pool. A reel left half drawn for two minutes premieres with what it has.
 
 export const COLS = 48, ROWS = 32, FRAMES = 12;
-const MAX_OPEN = 10, IDLE_PREMIERE_MS = 120_000, PREMIERE_MS = 45_000, GRACE_MS = 30_000;
+const MAX_OPEN = 10, MAX_QUEUE = 8, IDLE_PREMIERE_MS = 120_000, PREMIERE_MS = 45_000, GRACE_MS = 30_000;
+const BITS = /^[A-Za-z0-9+/]{1,300}={0,2}$/;
 export const PROMPTS = ['a bouncing ball', 'a walking robot', 'a blinking led', 'a capsule dropping out of the machine', 'a rocket launch',
   'a spinning gear', 'a waving hand', 'a growing plant', 'a jumping frog', 'a sine wave', 'a heartbeat', 'lightning'];
 
@@ -31,6 +32,8 @@ function premiere(ctx, s, reel) {
   if (!frames.length) return;
   s.open = s.open.filter(r => r !== reel);
   s.queue.push({ id: reel.id, prompt: reel.prompt, frames: frames.map(f => f[0]), by: [...new Set(frames.map(f => f[1]))] });
+  // Reels finish faster than they play with a crowd, and every one is kept in the saved room.
+  if (s.queue.length > MAX_QUEUE) s.queue.shift();
 }
 
 export default {
@@ -59,7 +62,7 @@ export default {
     frame(ctx, pid, msg) {
       const s = ctx.state, held = claimOf(s, pid, ctx.now);
       if (!held || held.reel.id !== msg.reel || held.slot !== msg.slot) return { note: 'that frame is no longer yours. grab another one.' };
-      if (typeof msg.bits !== 'string' || msg.bits.length > 300) return null;
+      if (typeof msg.bits !== 'string' || !BITS.test(msg.bits)) return null;
       const { reel, slot } = held;
       reel.frames[slot] = msg.bits;
       reel.by[slot] = ctx.name(pid);
@@ -123,7 +126,8 @@ export default {
       const s = ctx.state, reel = [...s.open].sort((a, b) => b.frames.filter(Boolean).length - a.frames.filter(Boolean).length)[0];
       if (reel) premiere(ctx, s, reel);
     } },
-    { label: 'replay the last premiere', run: ctx => { const s = ctx.state; if (s.premiere) { s.queue.unshift({ ...s.premiere, id: s.premiere.id + 0.5 }); s.premiereAt = 0; } } },
+    // A fresh id, since the badge plays a reel only when its key changes.
+    { label: 'replay the last premiere', run: ctx => { const s = ctx.state; if (s.premiere) { s.queue.unshift({ ...s.premiere, id: ++s.reelCount }); s.premiereAt = 0; } } },
   ],
 
   headline(ctx) { const s = ctx.state, drawn = s.open.reduce((n, r) => n + r.frames.filter(Boolean).length, 0); return { big: `${drawn} frames drawing`, small: s.premiere ? `last premiere: ${s.premiere.prompt}` : 'no premiere yet' }; },

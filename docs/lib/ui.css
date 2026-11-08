@@ -33,7 +33,7 @@ h3{font:600 14px var(--mono);margin:var(--s4) 0 var(--s2);color:var(--ink2)}
 .btn:active:not(:disabled){transform:translate(2px,2px)}
 .btn:disabled{color:var(--ink3);border-color:var(--ink3);background:var(--sunk)}
 .btn[aria-pressed=true]{background:var(--ink);color:var(--raised)}
-.btn.quiet{border-color:transparent;background:none;text-decoration:underline;min-height:40px}
+.btn.quiet{border-color:transparent;background:none;text-decoration:underline}
 .go{background:var(--pink);color:var(--ink);box-shadow:3px 3px 0 var(--ink);font-size:18px;padding:var(--s3);width:100%}
 .go:disabled{box-shadow:none}
 

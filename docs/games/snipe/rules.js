@@ -6,6 +6,8 @@ import { code } from '../../lib/protocol.js';
 import { clean } from '../../lib/words.js';
 
 const FALLBACK_MS = 25_000;
+// The code is four letters from 32, so a phone that keeps guessing is cut off for the round.
+const MAX_WRONG = 5;
 
 function next(ctx, s) {
   if (s.claims.length) s.best = s.claims.slice(0, 3).map(c => ({ name: c.name, ms: c.ms }));
@@ -13,6 +15,7 @@ function next(ctx, s) {
   s.code = code(4);
   s.live = false;
   s.claims = [];
+  s.wrong = {};
   s.waitingSince = ctx.now;
   s.until = 0;
 }
@@ -34,7 +37,9 @@ export default {
     claim(ctx, pid, msg) {
       const s = ctx.state, guess = clean(msg.c, 8).toUpperCase();
       if (!s.live) return { note: 'no code is live. wait for the badge to flash.' };
-      if (guess !== s.code) return { note: 'that is not the code on the badge right now.' };
+      const wrong = s.wrong || (s.wrong = {});
+      if ((wrong[pid] || 0) >= MAX_WRONG) return { note: 'too many wrong codes. wait for the next one.' };
+      if (guess !== s.code) { wrong[pid] = (wrong[pid] || 0) + 1; return { note: 'that is not the code on the badge right now.' }; }
       if (s.claims.some(c => c.pid === pid)) return { note: 'you already claimed this one.' };
       const pts = Math.max(10, 100 - 15 * s.claims.length);
       s.claims.push({ pid, name: ctx.name(pid), ms: ctx.now - s.liveAt, pts });

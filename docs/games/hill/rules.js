@@ -152,7 +152,8 @@ export default {
 
   controls: () => [
     { label: 'end this phase now', run: ctx => { ctx.state.until = 0; } },
-    { label: 'skip this prompt', run: ctx => { const s = ctx.state; s.at++; begin(ctx, s); } },
+    // A new round number, so a phone that already voted or typed in the old phase starts clean.
+    { label: 'skip this prompt', run: ctx => { const s = ctx.state; s.round++; s.at++; begin(ctx, s); } },
     { label: 'take the winner off the badge', run: ctx => { ctx.state.hidden = true; } },
   ],
 

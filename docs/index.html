@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
 <title>Badge Control</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
@@ -11,18 +19,18 @@
   --pink:#FE0386;--paper:#f5f0e6;--raised:#fffdf7;--sunk:#efe9db;--ink:#1a1a1a;--ink2:#444;--ink3:#6b6459;--void:#0a0a0a;
   --err:#c3251f;--lamp:#ffb020;--lamp-off:#2a2a2a;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--tap:44px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--tap:48px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--mono)}
 button,input,select,textarea{font:inherit;color:inherit;border-radius:0}
-button{cursor:pointer;min-height:var(--tap)}
+button{cursor:pointer;min-height:var(--tap);touch-action:manipulation}
 button:disabled{cursor:not-allowed}
 a{color:inherit}
 [hidden]{display:none !important}
 :focus-visible{outline:3px solid var(--pink);outline-offset:2px}
-input,textarea,select{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);width:100%;min-width:0;min-height:var(--tap)}
+input,textarea,select{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);width:100%;min-width:0;min-height:var(--tap);font-size:16px}
 label{display:block;font-weight:600;font-size:13px;margin-bottom:var(--s1)}
 .prose{font:15px/1.4 var(--type);color:var(--ink2);margin:var(--s2) 0 0;max-width:62ch}
 
@@ -39,7 +47,7 @@ label{display:block;font-weight:600;font-size:13px;margin-bottom:var(--s1)}
 #gate{max-width:480px;margin:0 auto;padding:var(--s6) var(--s4)}
 #gate h1{font:40px/1.05 var(--disp);margin:0 0 var(--s2)}
 .keybox{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);margin:var(--s4) 0 var(--s3)}
-#gateMsg{min-height:44px;margin-top:var(--s3);color:var(--err);font-weight:600}
+#gateMsg{min-height:var(--tap);margin-top:var(--s3);color:var(--err);font-weight:600}
 
 /* the page */
 #app{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr);gap:var(--s5);max-width:1200px;margin:0 auto;padding:var(--s4);align-items:start}
@@ -117,7 +125,7 @@ input[type=range]{border:0;padding:0;background:none;accent-color:var(--ink)}
 
 <main id="gate">
   <h1>connect your badge</h1>
-  <p class="prose">paste the badge key. it stays in this browser and is never sent anywhere.</p>
+  <p class="prose">paste the badge key. it stays in this browser or app and is never sent anywhere.</p>
   <form id="gateForm">
     <div class="keybox">
       <div>
@@ -440,7 +448,8 @@ async function connect() {
     client = new CLASP.Clasp(RELAY, { name: 'hack.build badge control', reconnect: true });
     client.onDisconnect?.(() => { online = false; states = 0; render(); say('your connection dropped. reconnecting.', 'bad'); });
     client.onReconnect?.(() => { hello(); say('reconnected. looking for the badge.'); });
-    await client.connect();
+    // A relay that never answers would leave the button on connecting for as long as the socket takes to give up.
+    await Promise.race([client.connect(), new Promise((_, no) => setTimeout(() => no(new Error('timed out')), 10000))]);
     unsub = client.on(`${base}/**`, onMessage);
     try { localStorage.setItem(KEY_STORE, key); } catch (e) {}
     $('gate').hidden = true;
@@ -456,8 +465,9 @@ async function connect() {
     }, 15000);
     render();
   } catch (e) {
+    try { client && client.close(); } catch (x) { /* never opened */ }
     client = null;
-    $('gateMsg').textContent = `could not reach the relay. check your network and try again.`;
+    $('gateMsg').textContent = 'could not reach the relay. check your network and try again.';
   }
   $('connect').disabled = false;
   $('connect').textContent = 'connect';
@@ -580,10 +590,13 @@ async function zlib(bytes) {
   return new Uint8Array(await new Response(s).arrayBuffer());
 }
 
+// One waiter at a time. Each clears only itself, so the late timeout of an abandoned send
+// cannot drop the waiter of the send that replaced it.
 function waitAck(want) {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => { ackWaiter = null; reject(new Error('the badge stopped answering during the send.')); }, 20000);
-    ackWaiter = got => { if (got === want) { clearTimeout(t); ackWaiter = null; resolve(); } };
+    const mine = got => { if (got === want) { clearTimeout(t); if (ackWaiter === mine) ackWaiter = null; resolve(); } };
+    const t = setTimeout(() => { if (ackWaiter === mine) ackWaiter = null; reject(new Error('the badge stopped answering during the send.')); }, 20000);
+    ackWaiter = mine;
   });
 }
 
@@ -607,6 +620,8 @@ async function sendImage() {
     $('prog').value = 0;
     say(`sending ${Math.round(z.length / 1024)} kb.`);
     const started = waitAck(`${id}:-1`);
+    // If the command fails first, nobody awaits this, and its timeout would surface as an unhandled rejection.
+    started.catch(() => {});
     await command('img', { id, size: z.length, sha, color });
     await started;
     for (let i = 0; i < count; i++) {

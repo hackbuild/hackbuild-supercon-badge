@@ -53,6 +53,7 @@ export function mount(root, api) {
       URL.revokeObjectURL(img.src);
       render();
     };
+    img.onerror = () => { URL.revokeObjectURL(img.src); api.note('that file did not open as a picture. take another selfie.', true); };
     img.src = URL.createObjectURL(f);
   });
   contrast.addEventListener('input', render);

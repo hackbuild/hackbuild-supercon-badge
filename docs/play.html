@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
 <title>hack.build Crowd Games</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/ui.css">
@@ -39,6 +46,7 @@ footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3
 
 <main id="joinView" class="wrap" hidden>
   <h1 class="hero">crowd games on a badge</h1>
+  <p class="kicker" id="joinRoom"></p>
   <p class="prose">your phone is the controller. the e-paper badge on the person in front of you is the screen everyone sees.</p>
   <form id="joinForm" class="stack" style="margin-top:var(--s5)">
     <div>
@@ -54,9 +62,10 @@ footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3
   <h1 class="hero">no room in this link</h1>
   <p class="prose">scan the code on the badge again, or type the room code it shows.</p>
   <form id="roomForm" class="stack" style="margin-top:var(--s4)">
-    <div><label for="roomIn">room code</label><input id="roomIn" class="code" maxlength="4" autocapitalize="characters" spellcheck="false"></div>
+    <div><label for="roomIn">room code</label><input id="roomIn" class="code" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
     <button class="btn go" type="submit">open the room</button>
   </form>
+  <p class="prose" id="roomMsg" role="alert"></p>
 </main>
 
 <div id="game" hidden>
@@ -90,7 +99,7 @@ footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3
     <section id="slot"></section>
     <footer>
       <details open id="board"><summary>leaderboard, all games</summary><ol id="top"></ol></details>
-      <p class="small" style="margin-top:var(--s3)">playing as <b id="me-name"></b>. <button class="btn quiet" id="rename" style="min-height:0;padding:0">change name</button></p>
+      <div class="split" style="margin-top:var(--s3)"><span class="small">playing as <b id="me-name"></b></span><button class="btn quiet" id="rename">change name</button></div>
     </footer>
   </main>
 </div>
@@ -154,7 +163,10 @@ async function upload(text) {
 }
 
 function beat() { if (relay) relay.emit(p.beat, pid); }
-async function sayWho() { relay.set(p.who(pid), JSON.stringify({ name, key: await seal.publicJwk(keys) })); }
+// A send that fails is repeated by relay.onUp, which says who this is again after every reconnect.
+async function sayWho() {
+  try { relay.set(p.who(pid), JSON.stringify({ name, key: await seal.publicJwk(keys) })); } catch (e) { console.warn('could not send the name', e); }
+}
 
 const left = v => (v && v.left != null ? Math.max(0, v.left - (Date.now() - viewAt)) : 0);
 
@@ -196,6 +208,7 @@ async function onView(value) {
 
 async function mountGame(kind) {
   if (loading && loading === kind) return;
+  if (kind && !gameMeta(kind)) { note('the host picked a game this page does not know. reload it.', true); return; }
   loading = kind || '';
   if (game && game.destroy) game.destroy();
   game = null;
@@ -230,7 +243,8 @@ async function onYou(value) {
 function render() {
   status();
   renderMe();
-  if (game && view && view.kind === gameKind) game.update(view, you);
+  // A game that throws in update must not take the score, rank and status with it.
+  try { if (game && view && view.kind === gameKind) game.update(view, you); } catch (e) { console.error(e); }
 }
 
 function renderMe() {
@@ -315,7 +329,12 @@ async function start() {
   $('noRoom').hidden = true;
   $('game').hidden = false;
   startedAt = Date.now();
-  keys = await seal.keypair('hb.play.keys');
+  try {
+    keys = await seal.keypair('hb.play.keys');
+  } catch (e) {
+    note('this browser could not set up its keys, which a game needs. open the link in another browser.', true);
+    return;
+  }
   relay = new Relay('hack.build player');
   relay.onUp = () => { sayWho(); beat(); status(); };
   relay.onDown = status;
@@ -348,12 +367,15 @@ $('joinForm').addEventListener('submit', e => {
 $('rename').addEventListener('click', () => { $('name').value = name; $('game').hidden = true; $('joinView').hidden = false; $('name').focus(); });
 $('roomForm').addEventListener('submit', e => {
   e.preventDefault();
-  location.hash = $('roomIn').value.trim().toUpperCase();
+  const r = $('roomIn').value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(r)) { $('roomMsg').textContent = 'the room code is 4 letters or digits, as shown on the badge.'; $('roomIn').focus(); return; }
+  location.hash = r;
   location.reload();
 });
 addEventListener('hashchange', () => { const was = room; parseHash(); if (room !== was) location.reload(); else render(); });
 
 parseHash();
+$('joinRoom').textContent = room ? `joining room ${room}` : '';
 if (!room) $('noRoom').hidden = false;
 else if (!name) { $('joinView').hidden = false; $('name').focus(); }
 else start();

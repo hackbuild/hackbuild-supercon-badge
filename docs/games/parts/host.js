@@ -70,7 +70,7 @@ export function mount(el, engine) {
     if (engine.room.kind !== 'parts' || !engine.rules) return;
     const extra = engine.room.games.parts.extra || [];
     deck.replaceChildren(...(extra.length ? extra.map(p => h('li', {}, h('span', {}, p.answer),
-      h('button.btn', { onclick: () => { engine.rules.removePart(engine.ctx(Date.now()), p.id); engine.dirty.save = true; update(); } }, 'remove'))) : [h('li', {}, 'none yet. the deck has the built in parts.')]));
+      h('button.btn', { onclick: () => { engine.rules.removePart(engine.ctx(Date.now()), p.id); engine.dirty.save = engine.dirty.view = engine.dirty.stage = true; update(); } }, 'remove'))) : [h('li', {}, 'none yet. the deck has the built in parts.')]));
   }
   update();
   return { update };

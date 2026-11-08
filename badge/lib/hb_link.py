@@ -27,12 +27,16 @@ PING_EVERY_S = 15
 # drops the session's subscriptions while leaving the socket open. Status would keep flowing out and
 # commands would silently stop, so an idle session is replaced before that can happen.
 RENEW_AFTER_S = 240
+# A half open connection on flaky wifi answers nothing, so connecting and subscribing are bounded.
+CONNECT_TIMEOUT_S = 25
 
 
 class _Hmac:
     """HMAC-SHA256 with the pads worked out once, since live ink checks several messages a second."""
 
     def __init__(self, key):
+        if len(key) > 64:
+            key = hashlib.sha256(key).digest()
         block = key + b"\0" * (64 - len(key))
         self.ipad = bytes(b ^ 0x36 for b in block)
         self.opad = bytes(b ^ 0x5C for b in block)
@@ -62,6 +66,9 @@ class Link:
         self.client = None
         self.outbox = []
         self.transfer = None
+        # The last chunk ack sent. A repeated chunk means the host missed it, so it is sent again.
+        self.acked_id = ""
+        self.acked_seq = -1
         self.started = time.time()
         self.last_rx = self.started
         self.sta = network.WLAN(network.STA_IF)
@@ -92,6 +99,15 @@ class Link:
         self.last_rx = time.time()
         if not isinstance(value, str):
             return
+        try:
+            self.route(address, value)
+        except Exception as ex:
+            # An exception here would end the reader task and drop the relay session, so a bad
+            # command, chunk or stroke costs only itself.
+            print("hb_link: message failed", address[len(self.base):])
+            sys.print_exception(ex)
+
+    def route(self, address, value):
         if address == self.base + "/keep":
             # A page that just opened asks for fresh status, so it can tell the badge is really on.
             if value == "hello":
@@ -184,9 +200,11 @@ class Link:
             hb_lights.countdown(int(val.get("ms", 0)), val.get("c") or (0, 0, 6))
         elif cmd in ("img", "reel"):
             size = int(val["size"])
-            if size > CHUNK_LIMIT:
-                self.fail("image too large")
+            if not 0 < size <= CHUNK_LIMIT:
+                self.fail("image size out of range")
                 return
+            # Dropped first, so a restarted send never holds two buffers on the heap at once.
+            self.transfer = None
             gc.collect()
             # A screen for the Play app or a reel goes there; anything else is a message for Sent.
             to = "reel" if cmd == "reel" else "play" if val.get("to") == "play" else "sent"
@@ -194,6 +212,7 @@ class Link:
                              "color": bool(val.get("color")), "to": to, "then": val.get("then", ""),
                              "loops": max(0, min(100, int(val.get("loops", 2)))),
                              "got": 0, "buf": bytearray(size)}
+            self.acked_id, self.acked_seq = val["id"], -1
             self.send("/ack", val["id"] + ":-1")
 
     def fail(self, why):
@@ -202,11 +221,13 @@ class Link:
         hb_state.changed()
 
     def on_chunk(self, value):
-        t = self.transfer
-        if not t:
-            return
         tid, seq, data = value.split(":", 2)
-        if tid != t["id"] or int(seq) != t["next"]:
+        t = self.transfer
+        if not t or tid != t["id"] or int(seq) != t["next"]:
+            # A repeat or a gap, or a chunk after the end: the host is resending because an ack was
+            # lost. Repeating the last ack lets it move on instead of stalling out.
+            if tid == self.acked_id:
+                self.send("/ack", "%s:%d" % (tid, self.acked_seq))
             return
         raw = binascii.a2b_base64(data)
         if t["got"] + len(raw) > t["size"]:
@@ -216,7 +237,8 @@ class Link:
         t["buf"][t["got"]:t["got"] + len(raw)] = raw
         t["got"] += len(raw)
         t["next"] += 1
-        self.send("/ack", tid + ":" + seq)
+        self.acked_seq = t["next"] - 1
+        self.send("/ack", "%s:%d" % (tid, self.acked_seq))
         if t["got"] == t["size"]:
             self.finish()
 
@@ -230,13 +252,24 @@ class Link:
         from apps.d_play import FRAME_PATH, REEL_PATH, PlayApp
         path = {"reel": REEL_PATH, "play": FRAME_PATH}.get(to, hb_state.SENT_PATH)
         # Written beside the old file and swapped in, so a reel still playing never reads half a file.
-        with open(path + ".new", "wb") as f:
-            f.write(t["buf"])
+        tmp = path + ".new"
         try:
-            os.remove(path)
-        except OSError:
-            pass
-        os.rename(path + ".new", path)
+            with open(tmp, "wb") as f:
+                f.write(t["buf"])
+            try:
+                os.rename(tmp, path)
+            except OSError:
+                # littlefs replaces the target in one step. A filesystem that refuses needs it removed.
+                os.remove(path)
+                os.rename(tmp, path)
+        except OSError as ex:
+            print("hb_link: save failed", ex)
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            self.fail("image did not save")
+            return
         del t
         gc.collect()
         hb_state.status["err"] = ""
@@ -335,8 +368,6 @@ class Link:
                 was_busy = busy
                 last_state = now
                 await self.client.set(self.base + "/state", self.state_json())
-            if now - self.last_rx >= RENEW_AFTER_S:
-                raise OSError("renewing relay session")
             if now - last_ping >= PING_EVERY_S:
                 last_ping = now
                 await self.client.ping()
@@ -345,25 +376,35 @@ class Link:
                 await self.client.emit(self.base + suffix, text)
             await aio.sleep_ms(100)
 
-    async def session(self):
-        self.client = Clasp(hb_state.config["relay"], "hack.build badge")
-        self.client.on_message = self.on_message
+    async def open_relay(self):
         await self.client.connect()
         print("hb_link: on relay as", self.base)
         await self.client.subscribe(self.base + "/cmd", 1)
         await self.client.subscribe(self.base + "/chunk", 2)
         await self.client.subscribe(self.base + "/keep", 3)
         await self.client.subscribe(self.base + "/ink", 4)
-        self.last_rx = time.time()
-        hb_state.changed()
-        reader = aio.create_task(self.client.run())
-        writer = aio.create_task(self.writer())
+
+    async def session(self):
+        self.client = Clasp(hb_state.config["relay"], "hack.build badge")
+        self.client.on_message = self.on_message
+        reader = writer = None
         try:
+            await aio.wait_for(self.open_relay(), CONNECT_TIMEOUT_S)
+            # Acks and presses queued while offline are stale, and a press would run a game control late.
+            self.outbox = []
+            self.last_rx = time.time()
+            hb_state.changed()
+            reader = aio.create_task(self.client.run())
+            writer = aio.create_task(self.writer())
             while not reader.done() and not writer.done():
+                # Checked here, not in the writer, which can sit in a send that never drains.
+                if time.time() - self.last_rx >= RENEW_AFTER_S:
+                    raise OSError("renewing relay session")
                 await aio.sleep_ms(200)
         finally:
-            reader.cancel()
-            writer.cancel()
+            for task in (reader, writer):
+                if task:
+                    task.cancel()
             self.client.close()
 
     async def run(self):

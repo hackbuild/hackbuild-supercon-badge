@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
 <title>Crowd Games Host</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/ui.css">
@@ -41,13 +48,13 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
 #nowHead{display:flex;align-items:center;gap:var(--s3)}
 #nowHead svg{flex:none}
 #nowName{font:28px/1 var(--disp)}
-#nowBig{font:44px/1 var(--inst)}
+#nowBig{font:44px/1 var(--inst);overflow-wrap:anywhere}
 #nowSmall{font:15px/1.4 var(--type);color:var(--ink2);overflow-wrap:anywhere}
 .big2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
 .big2 button{min-height:64px;font-size:16px;flex-direction:column;gap:2px}
 .big2 button small{font:600 11px var(--mono);color:var(--ink3)}
 .more{display:flex;flex-wrap:wrap;gap:var(--s2)}
-.more .btn{flex:1 1 auto;min-height:44px;font-size:13px}
+.more .btn{flex:1 1 auto;min-height:var(--tap);font-size:13px}
 #empty{display:grid;gap:var(--s2)}
 #empty h2{font-size:30px}
 
@@ -71,13 +78,14 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
 .stats div{display:flex;justify-content:space-between;gap:var(--s3);font-size:13px;border-bottom:1px dashed var(--ink3);padding:var(--s1) 0}
 .stats b{text-align:right;overflow-wrap:anywhere}
 .list{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
-.list li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;font-size:14px;min-height:40px}
+.list li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;font-size:14px;min-height:var(--tap)}
 .list li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.list button{min-height:38px;padding:0 var(--s3);font-size:12px}
+.list button{min-height:var(--tap);padding:0 var(--s3);font-size:12px}
 .settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
 .switch{display:flex;gap:var(--s3);align-items:center;font-weight:600;font-size:14px;min-height:var(--tap);margin:0}
 .switch input{width:24px;height:24px;accent-color:var(--ink);flex:none}
 #join{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s4);align-items:center}
+@media (max-width:480px){#join{grid-template-columns:minmax(0,1fr)}}
 #joinQr{width:132px;height:132px;background:#fff;border:2px solid var(--ink);image-rendering:pixelated}
 #roomCode{font:56px/1 var(--inst);letter-spacing:.08em}
 #joinUrl{font-size:12px;overflow-wrap:anywhere;color:var(--ink2)}
@@ -86,13 +94,14 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
 
 /* game panels */
 .hits{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s2) 0}
-.hits .btn{min-height:36px;font-size:12px}
+.hits .btn{min-height:var(--tap);font-size:12px}
 .deck{list-style:none;padding:0;margin:0;display:grid;gap:var(--s1)}
 .deck li{display:flex;justify-content:space-between;gap:var(--s2);align-items:center}
 .queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s3)}
 .queued{display:grid;gap:var(--s2)}
-.pair2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.pair2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
 .pair2 .go{font-size:14px;padding:var(--s2)}
+.pair2 .btn{padding:var(--s2);font-size:14px}
 .row2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:end}
 .gifgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:var(--s2)}
 .gifpick{padding:0;border:2px solid var(--ink);background:var(--raised);display:grid;text-align:left;min-height:0}
@@ -101,14 +110,14 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
 
 #toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:9;display:grid;gap:var(--s2);width:min(520px,calc(100% - 32px))}
 .toast{background:var(--ink);color:var(--raised);padding:var(--s3) var(--s4);font-weight:600;box-shadow:4px 4px 0 var(--pink);display:flex;justify-content:space-between;gap:var(--s3);align-items:center}
-.toast button{background:none;border:2px solid var(--raised);color:var(--raised);min-height:36px;font-size:12px}
+.toast button{background:none;border:2px solid var(--raised);color:var(--raised);min-height:var(--tap);font-size:12px;flex:none}
 </style>
 </head>
 <body>
 
 <main id="gate">
   <h1>host crowd games</h1>
-  <p class="prose">this page runs the games and draws the badge. keep it open with the screen on while people play. paste the badge key to start. it stays in this browser.</p>
+  <p class="prose">this page runs the games and draws the badge. keep it open with the screen on while people play. paste the badge key to start. it stays on this device, and a copy added to an iphone home screen asks for it again.</p>
   <form id="gateForm" class="stack" style="margin-top:var(--s4)">
     <div><label for="key">badge key</label><input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="hb-..."></div>
     <button id="connect" class="btn go" type="submit">start hosting</button>
@@ -153,13 +162,13 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
       </section>
 
       <div id="tabs" role="tablist" aria-label="host sections">
-        <button role="tab" id="tab-games" aria-selected="true">games</button>
-        <button role="tab" id="tab-people" aria-selected="false">players</button>
-        <button role="tab" id="tab-credits" aria-selected="false">credits<b id="creditCount" hidden></b></button>
-        <button role="tab" id="tab-setup" aria-selected="false">setup</button>
+        <button role="tab" id="tab-games" aria-controls="pane-games" aria-selected="true">games</button>
+        <button role="tab" id="tab-people" aria-controls="pane-people" aria-selected="false">players</button>
+        <button role="tab" id="tab-credits" aria-controls="pane-credits" aria-selected="false">credits<b id="creditCount" hidden></b></button>
+        <button role="tab" id="tab-setup" aria-controls="pane-setup" aria-selected="false">setup</button>
       </div>
 
-      <section class="pane" id="pane-games" role="tabpanel">
+      <section class="pane" id="pane-games" role="tabpanel" aria-labelledby="tab-games">
         <div id="games" role="group" aria-label="pick a game"></div>
         <button id="stop" class="btn">stop games, show the join screen</button>
         <details id="settingsBox" hidden>
@@ -169,19 +178,19 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
         <div class="stats" id="stats"></div>
       </section>
 
-      <section class="pane" id="pane-people" role="tabpanel" hidden>
+      <section class="pane" id="pane-people" role="tabpanel" aria-labelledby="tab-people" hidden>
         <ul class="list" id="people"></ul>
         <p class="small">remove takes a player out of every game and off the leaderboard. their phone tells them.</p>
       </section>
 
-      <section class="pane" id="pane-credits" role="tabpanel" hidden>
+      <section class="pane" id="pane-credits" role="tabpanel" aria-labelledby="tab-credits" hidden>
         <label class="switch"><input type="checkbox" id="creditsOn"> games can award capsule credits</label>
         <div class="row2"><div><label for="creditsMax">most credits to give out</label><input id="creditsMax" type="number" min="0" max="500" inputmode="numeric"></div></div>
         <p class="prose" id="creditNote"></p>
         <ul class="list" id="credits"></ul>
       </section>
 
-      <section class="pane" id="pane-setup" role="tabpanel" hidden>
+      <section class="pane" id="pane-setup" role="tabpanel" aria-labelledby="tab-setup" hidden>
         <div id="join">
           <canvas id="joinQr" width="132" height="132" aria-label="qr code for the join link"></canvas>
           <div>
@@ -194,6 +203,7 @@ body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
         <div class="legend"><b>a</b><span id="legendA">the game's first control</span><b>b</b><span id="legendB">the game's second control</span></div>
         <label class="switch"><input type="checkbox" id="output"> send screens to the badge</label>
         <p class="small"><a href="index.html">badge control</a> for the logo, slides and messages.</p>
+        <div id="install" class="stack"></div>
         <button id="forget" class="btn">stop hosting and forget the key</button>
       </section>
     </section>
@@ -225,10 +235,23 @@ function toast(text, action = null, ms = 5000) {
 async function begin(secret) {
   if (!window.CLASP || !window.qrcode) { $('gateMsg').textContent = 'a library did not load. check your network and reload.'; return; }
   try { localStorage.setItem(KEY_STORE, secret); } catch (e) { /* private mode */ }
+  $('gateMsg').textContent = '';
   $('connect').disabled = true;
+  $('connect').textContent = 'starting';
   engine = new HostEngine(secret, render);
   window.hostEngine = engine;
-  await engine.start();
+  try {
+    await engine.start();
+  } catch (e) {
+    // A half started engine keeps its relay socket open, so it is closed before another try.
+    try { engine.relay && engine.relay.close(); } catch (x) { /* never opened */ }
+    engine = null;
+    window.hostEngine = null;
+    $('connect').disabled = false;
+    $('connect').textContent = 'start hosting';
+    $('gateMsg').textContent = `could not start hosting. ${e && e.message ? `${e.message}. ` : ''}check your network and try again.`;
+    return;
+  }
   $('gate').hidden = true;
   $('shell').hidden = false;
   $('roomCode').textContent = engine.code;
@@ -252,19 +275,35 @@ async function begin(secret) {
 async function startGame(id) {
   if (engine.room.kind === id) { toast(`${gameMeta(id).name} is already running.`); return; }
   if (engine.room.kind && !confirmSwitch(id)) return;
-  await engine.startGame(id);
+  try { await engine.startGame(id); } catch (e) { toast(`${gameMeta(id).name} did not load. check your network and tap it again.`); return; }
   render();
   scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Switching games mid round loses that round, so it asks once, in the page, without a dialog.
+// Switching games, stopping them or forgetting the key cannot be undone in front of a room,
+// so each asks once, in the page, without a dialog.
 let armed = '';
-function confirmSwitch(id) {
+function confirmTwice(id, text) {
   if (armed === id) { armed = ''; return true; }
   armed = id;
-  toast(`tap ${gameMeta(id).name} again to switch. this round of ${gameMeta(engine.room.kind).name} ends.`, null, 4000);
+  toast(text, null, 4000);
   setTimeout(() => { if (armed === id) armed = ''; }, 4000);
   return false;
+}
+const confirmSwitch = id => confirmTwice(`game:${id}`, `tap ${gameMeta(id).name} again to switch. this round of ${gameMeta(engine.room.kind).name} ends.`);
+
+// The page redraws several times a second. A list with buttons is rebuilt only when its rows
+// change, and never under a finger, or a tap lands on a row that is gone. Chrome focuses a tapped
+// button, so a rebuild moves focus to the new button of the same player instead of waiting for
+// focus to leave, which would leave the old label up for a second tap to undo.
+let touched = 0;
+function fill(el, sig, rows) {
+  if (el.dataset.sig === sig || Date.now() - touched < 700) return;
+  const had = el.contains(document.activeElement) ? document.activeElement.dataset.pid : '';
+  el.dataset.sig = sig;
+  el.replaceChildren(...rows());
+  const back = had && [...el.querySelectorAll('button')].find(b => b.dataset.pid === had);
+  if (back) back.focus({ preventScroll: true });
 }
 
 // ---- rendering from the engine ----
@@ -314,7 +353,8 @@ function renderNow(kind) {
     panelKind = kind;
     panel = null;
     $('panel').replaceChildren();
-    hostFor(kind).then(mod => { if (mod && engine.room.kind === kind) panel = mod.mount($('panel'), engine); });
+    hostFor(kind).then(mod => { if (mod && engine.room.kind === kind) panel = mod.mount($('panel'), engine); })
+      .catch(() => toast(`the ${meta.name} panel did not load. reload the page.`));
   }
   if (panel && panel.update) panel.update();
 }
@@ -343,28 +383,33 @@ function renderCredits() {
   $('creditsOn').checked = c.on;
   $('creditCount').hidden = !open;
   $('creditCount').textContent = open;
+  list.sort((a, b) => b[1].at - a[1].at);
   if (seenCredits >= 0 && list.length > seenCredits) toast('a capsule credit was won.', { label: 'see it', run: () => selectTab('credits') });
   seenCredits = list.length;
   $('creditNote').textContent = `${list.length} of ${c.max} given. each is sealed to the winner's phone. on android they load it onto a blank coin; on an iphone they show you the code, you hand them a coin, then tap gave a coin.`;
-  $('credits').replaceChildren(...(list.length ? list.sort((a, b) => b[1].at - a[1].at).map(([pid, cr]) => h('li', {},
+  fill($('credits'), JSON.stringify(list.map(([pid, cr]) => [pid, cr.token, cr.why, !!cr.given, engine.room.names[pid]])), () => (list.length ? list.map(([pid, cr]) => h('li', {},
     h('span', {}, `${shortCode(cr.token)}, ${engine.room.names[pid] || 'someone'}, ${cr.why}`),
     h('b', {}, cr.given ? 'given' : ''),
-    h('button.btn', { onclick: () => engine.markGiven(pid) }, cr.given ? 'undo' : 'gave a coin'))) : [h('li', {}, h('span', {}, 'none yet.'))]));
+    h('button.btn', { onclick: () => engine.markGiven(pid), 'data-pid': pid }, cr.given ? 'undo' : 'gave a coin'))) : [h('li', {}, h('span', {}, 'none yet.'))]));
 }
 
 function renderPeople() {
   const room = engine.room;
   const top = Object.entries(room.scores).filter(([pid]) => !room.banned[pid]).sort((a, b) => b[1] - a[1]).slice(0, 30);
-  const rows = top.map(([pid, s], i) => h('li', {}, h('span', {}, `${i + 1}. ${room.names[pid] || 'someone'}`), h('b', {}, String(s)),
-    h('button.btn', { onclick: () => engine.remove(pid), 'aria-label': `remove ${room.names[pid] || 'this player'}` }, 'remove')));
-  const gone = Object.keys(room.banned).map(pid => h('li', {}, h('span', {}, `${room.names[pid] || 'someone'}, removed`), h('b', {}),
-    h('button.btn', { onclick: () => engine.letBack(pid) }, 'let back in')));
-  $('people').replaceChildren(...(rows.length || gone.length ? [...rows, ...gone] : [h('li', {}, h('span', {}, 'nobody has scored yet.'))]));
+  const banned = Object.keys(room.banned);
+  fill($('people'), JSON.stringify([top.map(([pid, s]) => [pid, s, room.names[pid]]), banned.map(pid => [pid, room.names[pid]])]), () => {
+    const rows = top.map(([pid, s], i) => h('li', {}, h('span', {}, `${i + 1}. ${room.names[pid] || 'someone'}`), h('b', {}, String(s)),
+      h('button.btn', { onclick: () => engine.remove(pid), 'aria-label': `remove ${room.names[pid] || 'this player'}`, 'data-pid': pid }, 'remove')));
+    const gone = banned.map(pid => h('li', {}, h('span', {}, `${room.names[pid] || 'someone'}, removed`), h('b', {}),
+      h('button.btn', { onclick: () => engine.letBack(pid), 'data-pid': pid }, 'let back in')));
+    return rows.length || gone.length ? [...rows, ...gone] : [h('li', {}, h('span', {}, 'nobody has scored yet.'))];
+  });
 }
 
 function selectTab(name) {
   for (const t of ['games', 'people', 'credits', 'setup']) {
     $(`tab-${t}`).setAttribute('aria-selected', String(t === name));
+    $(`tab-${t}`).tabIndex = t === name ? 0 : -1;
     $(`pane-${t}`).hidden = t !== name;
   }
   try { localStorage.setItem(TAB_STORE, name); } catch (e) { /* private mode */ }
@@ -372,13 +417,17 @@ function selectTab(name) {
 
 // ---- screen keeping ----
 
+// The browser drops the lock whenever the page is hidden, so it is asked for again on return.
+let waking = false;
 async function keepAwake() {
+  if (!engine || wake || waking || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  waking = true;
   try {
-    if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wake) {
-      wake = await navigator.wakeLock.request('screen');
-      wake.addEventListener('release', () => { wake = null; render(); });
-    }
+    const lock = await navigator.wakeLock.request('screen');
+    lock.addEventListener('release', () => { if (wake === lock) wake = null; render(); });
+    wake = lock;
   } catch (e) { wake = null; }
+  waking = false;
   render();
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
@@ -391,9 +440,23 @@ $('gateForm').addEventListener('submit', e => {
   if (!k) { $('gateMsg').textContent = 'paste your badge key first.'; return; }
   begin(k);
 });
-for (const t of ['games', 'people', 'credits', 'setup']) $(`tab-${t}`).addEventListener('click', () => selectTab(t));
+const TABS = ['games', 'people', 'credits', 'setup'];
+TABS.forEach((t, i) => {
+  $(`tab-${t}`).addEventListener('click', () => selectTab(t));
+  $(`tab-${t}`).addEventListener('keydown', e => {
+    const to = { ArrowRight: i + 1, ArrowLeft: i + TABS.length - 1 }[e.key];
+    if (to == null) return;
+    selectTab(TABS[to % TABS.length]);
+    $(`tab-${TABS[to % TABS.length]}`).focus();
+  });
+});
+// The engine redraws only on a change, so a rebuild skipped under the finger is run once the window ends.
+for (const id of ['people', 'credits']) $(id).addEventListener('pointerdown', () => { touched = Date.now(); setTimeout(render, 750); });
 $('toGames').addEventListener('click', () => { selectTab('games'); $('games').scrollIntoView({ behavior: 'smooth' }); });
-$('stop').addEventListener('click', () => engine.stopGames().then(render));
+$('stop').addEventListener('click', () => {
+  if (!engine.room.kind || !confirmTwice('stop', `tap stop again. this round of ${gameMeta(engine.room.kind).name} ends and the badge shows the join screen.`)) return;
+  engine.stopGames().then(render);
+});
 $('takeBack').addEventListener('click', () => { engine.claim(); render(); });
 $('output').addEventListener('change', e => { engine.output = e.target.checked; });
 $('creditsOn').addEventListener('change', e => { engine.room.cfg.credits.on = e.target.checked; engine.dirty.save = true; });
@@ -402,7 +465,12 @@ $('copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(engine.join.url); $('copy').textContent = 'copied'; } catch (e) { $('copy').textContent = 'copy failed'; }
   setTimeout(() => { $('copy').textContent = 'copy the link'; }, 2000);
 });
-$('forget').addEventListener('click', () => { try { localStorage.removeItem(KEY_STORE); } catch (e) { /* nothing saved */ } location.reload(); });
+$('forget').addEventListener('click', () => {
+  if (!confirmTwice('forget', 'tap forget again. hosting stops and you paste the key again to come back.')) return;
+  try { localStorage.removeItem(KEY_STORE); } catch (e) { /* nothing saved */ }
+  location.reload();
+});
+if (window.hbPwa) window.hbPwa.mount($('install'));
 
 let saved = '';
 try { saved = localStorage.getItem(KEY_STORE) || ''; } catch (e) { /* private mode */ }

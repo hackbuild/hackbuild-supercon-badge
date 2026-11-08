@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1a1a1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="badge">
+<script src="lib/pwa.js" defer></script>
 <title>Badge Viewer</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <style>
@@ -17,11 +25,12 @@ button,select,input{font:inherit;color:inherit;border-radius:0}
 button{background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:var(--s2) var(--s3);cursor:pointer;box-shadow:3px 3px 0 var(--ink3)}
 button.quiet{background:var(--card);color:var(--ink);box-shadow:none}
 button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-input,select{background:var(--card);border:2px solid var(--ink);padding:var(--s1) var(--s2)}
+button,input,select{min-height:48px}
+input,select{background:var(--card);border:2px solid var(--ink);padding:var(--s1) var(--s2);font-size:16px}
 header{background:var(--ink);color:var(--paper);display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);align-items:center;padding:var(--s2) var(--s4)}
 h1{font:26px var(--disp);margin:0}
 header p{font:14px var(--type);margin:0;opacity:.8;flex:1;min-width:180px}
-header a{color:var(--paper)}
+header a{color:var(--paper);display:inline-flex;align-items:center;min-height:48px}
 main{max-width:1120px;margin:0 auto;padding:var(--s4);display:grid;gap:var(--s4);grid-template-columns:minmax(0,1fr) 260px;align-items:start}
 .panel{background:var(--card);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--ink);padding:var(--s3) var(--s4);min-width:0}
 h2{font:20px var(--inst);text-transform:uppercase;letter-spacing:.06em;margin:0 0 var(--s2);border-bottom:1px dashed var(--ink3)}

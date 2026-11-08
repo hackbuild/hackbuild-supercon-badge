@@ -31,6 +31,10 @@ export class Relay {
 
   start() { this._open(); return this; }
 
+  // Bytes the socket has taken but not yet sent. The client queues without limit, so on a stalled
+  // link a sender that keeps writing only builds a backlog that arrives late and all at once.
+  get backlog() { return (this.client && this.client.ws && this.client.ws.bufferedAmount) || 0; }
+
   on(pattern, cb) {
     const sub = { pattern, cb, off: null };
     this.subs.push(sub);

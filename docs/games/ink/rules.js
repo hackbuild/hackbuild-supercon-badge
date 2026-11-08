@@ -48,6 +48,8 @@ function inkOf(ctx, pid) {
 
 function newPage(ctx) {
   const s = ctx.state;
+  // A page canvas is 2.5 MB; a long event fills a page every minute or two, so only the live one is kept.
+  pages.delete(`${ctx.epoch}.${s.page}`);
   s.page++;
   s.snap = '';
   s.coverage = 0;
@@ -84,6 +86,7 @@ function snapshot(cv) {
 export default {
   init(ctx) {
     const old = ctx.state;
+    pages.clear();
     return { page: old ? old.page + 1 : 1, prompt: PROMPTS[0], snap: '', snapAt: 0, changedAt: 0, coverage: 0, ink: {}, painters: {}, last: [] };
   },
 

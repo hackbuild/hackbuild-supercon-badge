@@ -71,7 +71,9 @@ function load(id, part) {
 
 export async function rulesFor(id) {
   const [rules, screen] = await Promise.all([load(id, 'rules'), load(id, 'screen')]);
-  return { ...gameMeta(id), ...rules.default, screen: screen };
+  // A phone names the handler it wants, so the table must not answer to "constructor" or "__proto__".
+  const input = Object.assign(Object.create(null), rules.default.input);
+  return { ...gameMeta(id), ...rules.default, input, screen: screen };
 }
 export const screenFor = id => load(id, 'screen');
 export const phoneFor = id => load(id, 'phone');
