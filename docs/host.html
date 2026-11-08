@@ -193,6 +193,8 @@ function load() {
     if (r && r.v === G.PROTOCOL) {
       r.cfg = { ...structuredClone(G.DEFAULTS), ...r.cfg };
       for (const k of Object.keys(G.DEFAULTS)) r.cfg[k] = { ...G.DEFAULTS[k], ...r.cfg[k] };
+      // Rooms saved before snake turns were halved still carry the old 6 s.
+      if (!r.cfgV) { if (r.cfg.snake.turnS === 6) r.cfg.snake.turnS = 3; r.cfgV = 1; }
       return r;
     }
   } catch (e) { /* a broken save starts a fresh room */ }
