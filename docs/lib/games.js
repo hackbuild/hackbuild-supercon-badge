@@ -18,7 +18,7 @@ export const DEFAULTS = {
   pixel: { batchS: 20, promptMin: 20, inkMax: 24, inkEveryS: 4 },
   hill: { answerS: 90, voteS: 60, resultS: 12, votesEach: 5 },
   snipe: { holdS: 30 },
-  snake: { turnS: 6 },
+  snake: { turnS: 3 },
 };
 
 // ---- moderation ----
@@ -443,7 +443,7 @@ const TICK = {
 export function snakeLopsided(room, now) {
   const g = room.g, t = g.tally, n = t.U + t.D + t.L + t.R;
   // A clear majority ends the turn early, but never sooner than the badge can show it.
-  return n >= 3 && Math.max(t.U, t.D, t.L, t.R) / n >= 0.8 && g.until - now > 2500;
+  return n >= 3 && Math.max(t.U, t.D, t.L, t.R) / n >= 0.8 && g.until - now > 1250;
 }
 
 // ---- what the phones see ----
