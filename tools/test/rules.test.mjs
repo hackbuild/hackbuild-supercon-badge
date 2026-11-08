@@ -451,3 +451,11 @@ test('gifs: a link joins the library once, phones can ask for it, and it can be 
   ctx.state.library = [];
   assert.equal(rules.init(ctx).library.length, 0);
 });
+
+test('gifs: a room saved before the library existed still runs', async () => {
+  const rules = (await import('../../docs/games/gifs/rules.js')).default;
+  const ctx = { now: 100_000, cfg: { requests: true }, state: { queue: [], now: null, loading: '', played: 0, asked: {} }, name: () => 'x', award() {} };
+  assert.ok(rules.view(ctx).presets.length > 0);
+  assert.equal(rules.addToLibrary(ctx, { title: 'a', url: 'https://example.com/a.gif' }), true);
+  assert.equal(ctx.state.library[0].id, 'u1');
+});

@@ -8,7 +8,9 @@ const COOLDOWN_MS = 30_000;
 // GIFs added from a link join the library, newest first, up to this many.
 const LIBRARY_MAX = 60;
 
-const find = (s, id) => preset(id) || s.library.find(g => g.id === id);
+// A room saved before the library existed has none, so every reader goes through here.
+const library = s => s.library || (s.library = []);
+const find = (s, id) => preset(id) || library(s).find(g => g.id === id);
 const MAX_QUEUE = 12;
 const LOAD_GIVE_UP_MS = 60_000;
 
@@ -73,7 +75,7 @@ export default {
     const s = ctx.state, n = s.now;
     return { now: n ? { title: n.title, url: n.url, by: n.by, frames: n.frames.length } : null, loading: s.loading,
       queue: s.queue.map(q => ({ title: q.title, by: q.by })), requests: !!ctx.cfg.requests,
-      presets: [...PRESETS, ...s.library].map(p => ({ id: p.id, title: p.title, url: p.url, thumb: p.thumb || p.url })) };
+      presets: [...PRESETS, ...library(s)].map(p => ({ id: p.id, title: p.title, url: p.url, thumb: p.thumb || p.url })) };
   },
 
   you(ctx, pid) { return { wait: Math.max(0, (ctx.state.asked[pid] || 0) + COOLDOWN_MS - ctx.now) }; },
@@ -114,10 +116,11 @@ export default {
   // A link the wearer played or queued, kept so phones can ask for it too.
   addToLibrary(ctx, item) {
     const s = ctx.state;
-    if (!item.url || PRESETS.some(p => p.url === item.url) || s.library.some(g => g.url === item.url)) return false;
-    s.library.unshift({ id: `u${++s.added}`, title: item.title.slice(0, 40), url: item.url });
+    if (!item.url || PRESETS.some(p => p.url === item.url) || library(s).some(g => g.url === item.url)) return false;
+    s.added = (s.added || 0) + 1;
+    s.library.unshift({ id: `u${s.added}`, title: item.title.slice(0, 40), url: item.url });
     s.library.length = Math.min(s.library.length, LIBRARY_MAX);
     return true;
   },
-  removeFromLibrary(ctx, id) { const s = ctx.state; s.library = s.library.filter(g => g.id !== id); },
+  removeFromLibrary(ctx, id) { const s = ctx.state; s.library = library(s).filter(g => g.id !== id); },
 };

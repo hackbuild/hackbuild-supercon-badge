@@ -307,7 +307,16 @@ export class HostEngine {
 
   // ---- the loop ----
 
+  // A bug in one game's rules must not stop the clock, the relay or the badge: it is reported once
+  // a minute and the rest of the loop keeps running.
   loop() {
+    try { this.step(); } catch (e) {
+      console.error('host loop', e);
+      if (Date.now() - (this.lastFault || 0) > 60_000) { this.lastFault = Date.now(); this.tell(`the game hit an error: ${e && e.message}. reload the page if it sticks.`); }
+    }
+  }
+
+  step() {
     if (!this.owner || !this.room) return;
     const now = Date.now();
     if (this.doubted && now - this.claimedAt >= CLAIM_GRACE_MS && this.relay.set(this.p.owner, this.token)) this.doubted = false;
