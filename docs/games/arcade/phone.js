@@ -1,23 +1,24 @@
 import { h } from '../../lib/phone-kit.js';
-import { CONSOLES, DIRS } from './consoles.js';
+import { key, dpad, stick } from '../../lib/pad.js';
+import { CONSOLES, DIRS, buttons } from './consoles.js';
 
-// A press shorter than this still reaches the host: the relay keeps only the newest mask.
+// A press shorter than this still reaches the host: the relay keeps only the newest input.
 const MIN_HOLD_MS = 70;
-const ARROWS = { up: '^', down: 'v', left: '<', right: '>' };
+const STICK_EVERY_MS = 40;
 
 export function mount(root, api) {
   const head = h('p.big');
   const seat = h('p.kicker');
-  const pad = h('div.pad', { role: 'group', 'aria-label': 'directions' });
-  const keys = h('div.keys', { role: 'group', 'aria-label': 'buttons' });
-  root.append(head, seat, pad, keys, h('p.small', {}, 'hold a button as long as you want it held. the projector shows the game live; the badge catches up about every two seconds.'));
+  const pad = h('div.controller');
+  root.append(h('div.split', {}, head, seat), pad, h('p.small', {}, 'the projector shows the game live. the badge catches up every couple of seconds.'));
 
-  let view = null, core = '', mask = 0, sent = -1;
+  let view = null, core = '', mask = 0, x = 0, y = 0, sentKey = '', stickAt = 0, stickTimer = 0;
   const downAt = new Map();
 
   function send() {
-    if (mask === sent) return;
-    if (api.send('pad', { m: mask })) sent = mask;
+    const k = `${mask}.${x}.${y}`;
+    if (k === sentKey) return;
+    if (api.send('pad', { m: mask, x, y })) sentKey = k;
   }
 
   function hold(bit, on) {
@@ -27,39 +28,53 @@ export function mount(root, api) {
     if (wait > 0) setTimeout(up, wait); else up();
   }
 
-  function key(bit, label, aria) {
-    const b = h('button', { type: 'button', 'aria-label': aria || label }, label);
-    const on = e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.setAttribute('aria-pressed', 'true'); hold(bit, true); };
-    const off = () => { if (b.getAttribute('aria-pressed') !== 'true') return; b.setAttribute('aria-pressed', 'false'); hold(bit, false); };
-    b.addEventListener('pointerdown', on);
-    b.addEventListener('pointerup', off);
-    b.addEventListener('pointercancel', off);
-    b.addEventListener('lostpointercapture', off);
-    b.addEventListener('contextmenu', e => e.preventDefault());
-    return b;
+  function move(nx, ny) {
+    x = Math.round(nx * 100);
+    y = Math.round(ny * 100);
+    clearTimeout(stickTimer);
+    const wait = STICK_EVERY_MS - (Date.now() - stickAt);
+    // Let go always goes out at once, so the stick never sticks.
+    if (wait <= 0 || (!x && !y)) { stickAt = Date.now(); send(); } else stickTimer = setTimeout(() => { stickAt = Date.now(); send(); }, wait);
   }
 
   function build() {
-    const c = CONSOLES[core];
-    pad.replaceChildren(...[null, 0, null, 2, null, 3, null, 1, null].map(i => (i === null ? h('span') : key(i, ARROWS[DIRS[i]], DIRS[i]))));
-    keys.replaceChildren(...c.buttons.map(([label], i) => key(4 + i, label)));
+    const c = CONSOLES[core], list = buttons(core);
+    const bitOf = b => 4 + list.indexOf(b);
+    const k = (b, cls) => key(b.l, on => hold(bitOf(b), on), `${cls}${b.c ? ` tint c-${b.c}` : ''}${b.p ? ` ${b.p}` : ''}`);
+    const parts = [];
+    if (c.sh) {
+      const L = h('div.sh-grp'), C = h('div.sh-grp'), R = h('div.sh-grp');
+      c.sh.forEach(b => (/^l/.test(b.l) ? L : /^r/.test(b.l) ? R : C).append(k(b, 'bumper')));
+      parts.push(h('div.pad-shoulders', {}, L, C, R));
+    }
+    const left = h('div.cluster', {}, dpad((d, on) => hold(DIRS.indexOf(d), on)).el);
+    if (c.stick) left.append(stick(move));
+    const mid = h('div.cluster.mid', {}, ...(c.sys || []).map(b => k(b, 'pill')));
+    const right = h('div.cluster');
+    if (c.cb) right.append(h('div.cpad', {}, h('div'), k(c.cb[0], 'round'), h('div'), k(c.cb[2], 'round'), h('div.clabel', {}, 'c'), k(c.cb[3], 'round'), h('div'), k(c.cb[1], 'round'), h('div')));
+    if (c.face6) right.append(h('div.face6', {}, h('div.row6', {}, ...c.face6.slice(0, 3).map(b => k(b, 'round'))), h('div.row6', {}, ...c.face6.slice(3).map(b => k(b, 'round')))));
+    else if (c.face4) right.append(h('div.face', {}, ...c.face4.map(b => k(b, 'round'))));
+    else if (c.abdiag) right.append(h('div.abdiag', {}, k(c.abdiag[0], 'round b'), k(c.abdiag[1], 'round a')));
+    else if (c.face) right.append(h('div.facerow', {}, ...c.face.map(b => k(b, 'round'))));
+    parts.push(h('div.pad-body', {}, left, mid, right));
+    pad.replaceChildren(...parts);
   }
 
   function draw() {
     if (!view) return;
-    head.textContent = view.rom ? view.rom.name : 'waiting for the host to load a game';
-    pad.hidden = keys.hidden = !view.rom;
-    if (view.rom && view.rom.core !== core && CONSOLES[view.rom.core]) { core = view.rom.core; mask = 0; sent = -1; build(); }
+    head.textContent = view.rom ? view.rom.name : 'waiting for a game';
+    pad.hidden = !view.rom;
+    if (view.rom && view.rom.core !== core && CONSOLES[view.rom.core]) { core = view.rom.core; mask = 0; x = y = 0; sentKey = ''; build(); }
   }
 
-  const release = () => { if (mask) { mask = 0; send(); } };
+  const release = () => { if (mask || x || y) { mask = 0; x = y = 0; send(); } };
   document.addEventListener('visibilitychange', release);
   return {
-    update(v, y) {
+    update(v, yv) {
       view = v;
-      seat.textContent = y && y.seat ? `you are player ${y.seat}` : view.seats > 1 ? 'press anything to get a player' : 'everyone shares one controller';
+      seat.textContent = yv && yv.seat ? `player ${yv.seat}` : view.seats > 1 ? 'press anything to get a player' : 'everyone shares one controller';
       draw();
     },
-    destroy() { release(); document.removeEventListener('visibilitychange', release); },
+    destroy() { release(); clearTimeout(stickTimer); document.removeEventListener('visibilitychange', release); },
   };
 }

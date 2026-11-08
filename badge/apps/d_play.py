@@ -8,6 +8,8 @@ import asyncio as aio
 import struct
 import time
 
+import micropython
+
 from apps.base_app import BaseApp
 from lib import hb_fast, hb_ink, hb_lights, hb_state
 from lib.button import UserA, UserB
@@ -19,6 +21,47 @@ REEL_PATH = "/data/hb/reel.bin"
 CLEAN_EVERY = 12
 # Live screens draw in one quick pass. Once they stop coming, the last one gets a clean refresh.
 LIVE_SETTLE_MS = 4000
+# A streamed frame is 240 by 168, a quarter of the panel each way.
+_FW, _FH = 240, 168
+
+
+def _expand_table():
+    # Each source byte becomes four bytes: every pixel four pixels wide.
+    t = bytearray(1024)
+    for b in range(256):
+        v = 0
+        for i in range(8):
+            if b & (0x80 >> i):
+                v |= 0xF << (28 - 4 * i)
+        t[b * 4:b * 4 + 4] = v.to_bytes(4, "big")
+    return t
+
+
+_EXPAND = None
+
+
+@micropython.viper
+def _expand(dst, src, tab):
+    d = ptr8(dst)
+    s = ptr8(src)
+    t = ptr8(tab)
+    y = 0
+    while y < 168:
+        o = y * 480
+        i = 0
+        while i < 30:
+            b = s[y * 30 + i] * 4
+            j = o + i * 4
+            d[j] = t[b]
+            d[j + 1] = t[b + 1]
+            d[j + 2] = t[b + 2]
+            d[j + 3] = t[b + 3]
+            i += 1
+        k = 120
+        while k < 480:
+            d[o + k] = d[o + k - 120]
+            k += 1
+        y += 1
 
 
 class PlayApp(BaseApp):
@@ -35,6 +78,8 @@ class PlayApp(BaseApp):
         self.reel_task = None
         self.quick = 0
         self.live_at = 0
+        self.frame_bits = None
+        self.red_left = True
         self.on_press = None
         PlayApp._instance = self
 
@@ -48,6 +93,16 @@ class PlayApp(BaseApp):
         hb_state.status["play"] = mode
         hb_state.changed()
 
+    def stream(self, bits):
+        """The newest frame of a live game. Frames that arrive while the panel draws replace each
+        other, so the badge always shows what was on screen when it was ready."""
+        self.frame_bits = bits
+        if self.mode != "stream":
+            self.red_left = True
+            self.set_mode("stream")
+        else:
+            self.pending = True
+
     def run(self):
         if self.launched or self.request:
             self.request = False
@@ -60,7 +115,7 @@ class PlayApp(BaseApp):
             self.on_press("b")
         if self.mode not in ("ink", "inkframe") and hb_ink.active:
             hb_ink.stop()
-        if (self.mode == "live" and self.quick and not self.pending and self.reel_task is None
+        if (self.mode in ("live", "stream") and self.quick and not self.pending and self.reel_task is None
                 and time.ticks_diff(time.ticks_ms(), self.live_at) > LIVE_SETTLE_MS):
             self.quick = CLEAN_EVERY
             self.pending = True
@@ -76,7 +131,7 @@ class PlayApp(BaseApp):
             hb_ink.start(clear_page=False)
         elif self.mode == "reel":
             self.reel_task = aio.create_task(self._play_reel(self.gen, self.loops))
-        elif self.mode == "live":
+        elif self.mode in ("live", "stream"):
             self.reel_task = aio.create_task(self._live_frame())
         elif self.mode == "frame":
             if not hb_state.show(FRAME_PATH):
@@ -87,7 +142,19 @@ class PlayApp(BaseApp):
     async def _live_frame(self):
         """One game screen in a single quick pass, the booster left on for the next one."""
         try:
-            if not hb_state.load(FRAME_PATH):
+            if self.mode == "stream":
+                global _EXPAND
+                if self.frame_bits is None:
+                    return
+                if _EXPAND is None:
+                    _EXPAND = _expand_table()
+                from lib.epd import display
+                _expand(display._framebuffer_black, self.frame_bits, _EXPAND)
+                if self.red_left:
+                    # Once per stream: an 80 KB buffer a frame would fragment the heap.
+                    display._framebuffer_red[:] = bytes(len(display._framebuffer_red))
+                    self.red_left = False
+            elif not hb_state.load(FRAME_PATH):
                 return
             self.quick += 1
             clean = self.quick >= CLEAN_EVERY

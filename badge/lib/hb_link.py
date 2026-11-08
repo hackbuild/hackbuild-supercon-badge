@@ -60,6 +60,8 @@ class Link:
         self.sign = _Hmac(self.key)
         self.ink_sid = ""
         self.ink_seq = -1
+        self.fr_sid = ""
+        self.fr_seq = -1
         self.room = _hex(hashlib.sha256(self.key).digest())[:16]
         self.base = "/hb/badge/" + self.room
         self.nonce = _hex(os.urandom(8))
@@ -119,6 +121,28 @@ class Link:
             self.on_chunk(value)
         elif address == self.base + "/ink":
             self.on_ink(value)
+        elif address == self.base + "/fr":
+            self.on_frame(value)
+
+    def on_frame(self, envelope):
+        """A live game frame: "session:seq:sig:bits", the bits a base64 240 by 168 one bit picture.
+        Signed and numbered like ink, so frames never wait a round trip, and only the newest counts."""
+        try:
+            sid, seq, sig, data = envelope.split(":", 3)
+            seq = int(seq)
+        except ValueError:
+            return
+        if _hex(self.sign(("fr|%s:%d:%s" % (sid, seq, data)).encode()))[:32] != sig:
+            return
+        if sid == self.fr_sid and seq <= self.fr_seq:
+            return
+        self.fr_sid, self.fr_seq = sid, seq
+        bits = binascii.a2b_base64(data)
+        if len(bits) != 5040:
+            return
+        from apps.d_play import PlayApp
+        if PlayApp._instance:
+            PlayApp._instance.stream(bits)
 
     def on_ink(self, envelope):
         """A live ink batch: "session:seq:sig:strokes". Signed like commands, but numbered instead of
@@ -383,6 +407,7 @@ class Link:
         await self.client.subscribe(self.base + "/chunk", 2)
         await self.client.subscribe(self.base + "/keep", 3)
         await self.client.subscribe(self.base + "/ink", 4)
+        await self.client.subscribe(self.base + "/fr", 5)
 
     async def session(self):
         self.client = Clasp(hb_state.config["relay"], "hack.build badge")

@@ -2,13 +2,15 @@
 // run time and never copied here), press what the phones hold, and hand the badge snapshots.
 import { h } from '../../lib/phone-kit.js';
 import { dither, packBits } from '../../lib/screen.js';
-import { CONSOLES, consoleFor, inputs } from './consoles.js';
-import { onPads, held } from './rules.js';
+import { CONSOLES, STICK, FULL, consoleFor, inputs } from './consoles.js';
+import { onPads, held, sticks } from './rules.js';
 
 const EJS_DATA = 'https://cdn.emulatorjs.org/stable/data/';
 const PRESETS = [{ name: 'smash', url: 'https://doot.sfo3.cdn.digitaloceanspaces.com/roms/smash.z64' }];
 const FW = 240, FH = 168;
-const SNAP_MS = 500;
+// The badge keeps only the newest frame, so sending faster than it draws costs nothing but
+// relay traffic, and what it draws is never more than this old.
+const SNAP_MS = 400;
 
 // EmulatorJS keeps one game per page, so it lives as long as the page does.
 let running = null;
@@ -67,7 +69,7 @@ export function mount(el, engine) {
       EJS_onGameStart: () => say(`${s.rom.name} is running. phones are the controllers.`),
     });
     document.body.append(h('script', { src: `${EJS_DATA}loader.js` }));
-    running = { core: s.rom.core, pads: [] };
+    running = { core: s.rom.core, pads: [], sticks: [] };
   }
 
   // Phones' buttons, pressed on the emulator as soon as they change.
@@ -83,6 +85,17 @@ export function mount(el, engine) {
       running.pads[seat] = m;
     });
     for (let seat = now.length; seat < running.pads.length; seat++) running.pads[seat] = 0;
+    if (!CONSOLES[running.core].stick) return;
+    sticks(s, seats, ctx().active).forEach(([x, y], seat) => {
+      const was = running.sticks[seat] || [0, 0];
+      if (x === was[0] && y === was[1]) return;
+      const v = n => Math.round((FULL * Math.max(0, n)) / 100);
+      gm.simulateInput(seat, STICK.right, v(x));
+      gm.simulateInput(seat, STICK.left, v(-x));
+      gm.simulateInput(seat, STICK.down, v(y));
+      gm.simulateInput(seat, STICK.up, v(-y));
+      running.sticks[seat] = [x, y];
+    });
   }
   const off = onPads(press);
 
@@ -106,8 +119,10 @@ export function mount(el, engine) {
     sc.drawImage(video, (FW - vw * k) / 2, (FH - vh * k) / 2, vw * k, vh * k);
     const d = sc.getImageData(0, 0, FW, FH).data, gray = new Float32Array(FW * FH);
     for (let i = 0; i < FW * FH; i++) gray[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
-    engine.rules.snapshot(ctx(), { bits: packBits(dither(gray, FW, FH, 0.2), FW, FH), w: FW, h: FH });
+    const bits = packBits(dither(gray, FW, FH, 0.2), FW, FH);
+    engine.rules.snapshot(ctx(), { bits, w: FW, h: FH });
     engine.dirty.stage = true;
+    if (engine.output && engine.badge.online) engine.badge.frame(bits).catch(() => {});
   }, SNAP_MS);
 
   return {

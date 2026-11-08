@@ -1,8 +1,9 @@
 import { h, seconds, timers } from '../../lib/phone-kit.js';
+import { dpad } from '../../lib/pad.js';
 import { board } from './screen.js';
 
-const ARROWS = { U: '^', D: 'v', L: '<', R: '>' };
 const NAMES = { U: 'up', D: 'down', L: 'left', R: 'right' };
+const DIR = { up: 'U', down: 'D', left: 'L', right: 'R' };
 
 export function mount(root, api) {
   const t = timers();
@@ -10,15 +11,11 @@ export function mount(root, api) {
   const timer = h('span.timer');
   const canvas = h('canvas.figure', { width: 600, height: 480, 'aria-label': 'the snake board' });
   const c = canvas.getContext('2d');
-  const pads = {};
-  const pad = h('div.pad', { role: 'group', 'aria-label': 'vote a direction' });
-  for (const d of [null, 'U', null, 'L', null, 'R', null, 'D', null]) {
-    if (!d) { pad.append(h('span')); continue; }
-    pads[d] = h('button', { 'aria-label': NAMES[d], 'aria-pressed': 'false', onclick: () => vote(d) }, ARROWS[d]);
-    pad.append(pads[d]);
-  }
+  // Sliding a thumb onto a direction votes for it, like steering with a real d-pad.
+  const pad = dpad((d, on) => { if (on) vote(DIR[d]); });
+  const pads = { U: pad.cells.up, D: pad.cells.down, L: pad.cells.left, R: pad.cells.right };
   const bars = h('div.bars');
-  root.append(h('div.split', {}, score, timer), canvas, pad, bars);
+  root.append(h('div.split', {}, score, timer), canvas, h('div.controller', {}, h('div.pad-body', { style: { justifyContent: 'center' } }, pad.el)), bars);
 
   let view = null, you = null, mine = '';
 
@@ -29,7 +26,7 @@ export function mount(root, api) {
 
   function paintPad() {
     const chosen = you && you.turn === view.turn && you.d ? you.d : mine;
-    for (const [d, b] of Object.entries(pads)) { b.setAttribute('aria-pressed', String(d === chosen)); b.disabled = view.over; }
+    for (const [d, b] of Object.entries(pads)) b.classList.toggle('chosen', d === chosen);
   }
 
   function draw() {

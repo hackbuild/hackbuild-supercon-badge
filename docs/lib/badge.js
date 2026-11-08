@@ -48,6 +48,7 @@ export class Badge {
     this.xferId = '';
     this.inkSession = Math.random().toString(36).slice(2, 8);
     this.inkSeq = 0;
+    this.frameSeq = 0;
     this.onState = () => {};
     this.onOnline = () => {};
     this.onPress = () => {};
@@ -189,6 +190,14 @@ export class Badge {
     const msg = `${this.inkSession}:${seq}:${strokes}`;
     const sig = hex(await crypto.subtle.sign('HMAC', this.key, te.encode(msg))).slice(0, 32);
     this.relay.emit(`${this.base}/ink`, `${this.inkSession}:${seq}:${sig}:${strokes}`);
+  }
+
+  // One live game frame, a packed 240 by 168 picture as base64. Numbered like ink, so it never
+  // waits a round trip; the badge draws the newest it has whenever the panel is free.
+  async frame(bits) {
+    const seq = ++this.frameSeq;
+    const sig = hex(await crypto.subtle.sign('HMAC', this.key, te.encode(`fr|${this.inkSession}:${seq}:${bits}`))).slice(0, 32);
+    this.relay.emit(`${this.base}/fr`, `${this.inkSession}:${seq}:${sig}:${bits}`);
   }
 
   // Waits for the panel to start and then finish a redraw. Only a busy report that arrived after

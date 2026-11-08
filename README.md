@@ -11,7 +11,7 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 
 ## The games
 
-Eight games and a meme GIF mode, each built for anywhere from one person to a room of a hundred or more.
+Nine games and a meme GIF mode, each built for anywhere from one person to a room of a hundred or more.
 
 | game | what you do | how the badge keeps up |
 |---|---|---|
@@ -22,8 +22,9 @@ Eight games and a meme GIF mode, each built for anywhere from one person to a ro
 | 2 fps cinema | draw one frame of a 12 frame loop, with the frame before yours showing faintly | full reels play on the badge as a flip book |
 | dither booth | take an opt in selfie, dithered for e-paper. The room votes one onto the badge | one portrait at a time |
 | flash snipe | every redraw shows a new code. First claims score most | a code goes live once the badge has drawn it |
-| snake by committee | the room votes every move | one screen per turn |
+| snake by committee | the room votes every move. A turn ends once half the room agrees, so a few people steer it live | one quick pass per turn |
 | meme gifs | the wearer taps a GIF, pastes a link or picks a file. Phones ask for the next one from a preset list | ten dithered frames loop on the badge until the next GIF |
+| retro arcade | the host loads a rom and EmulatorJS runs it in the host page. Your phone is the controller, laid out like the console's own. The room can share one controller or split into up to four players | frames stream to the badge, which draws the newest in one quick pass, about 1.3 s each |
 
 Name That Package came out of my [hackbuild-fab](https://github.com/hackbuild/hackbuild-fab) parts workflow. `tools/parts/build.py` pulls 38 footprints from the KiCad library mirror on GitHub, Espressif's KiCad library and the hbf catalog, and the pin names from KiCad's current symbols, so the pinout on a reveal is the one KiCad ships. Supercon favorites are in there: the Z80 and the 1802 in DIP-40, the CH32V003, the Blue Pill chip, the RP2040, ESP32 modules, a WS2812B, a Pi header and a USB-C receptacle. While a game runs, the host can search KiCad's library and add more footprints on the spot.
 
