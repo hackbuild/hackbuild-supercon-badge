@@ -114,6 +114,7 @@ summary{cursor:pointer;font-weight:600;min-height:var(--tap);display:flex;align-
     <div id="badge">
       <canvas id="frame" width="960" height="672" aria-label="the last screen sent to the badge"></canvas>
       <div id="say" role="status" aria-live="polite">starting.</div>
+      <button id="yield" class="btn wide" hidden style="margin-top:var(--s2)">host from this device instead</button>
     </div>
     <div class="lights" aria-label="connections">
       <span><i id="lRelay"></i>relay</span>
@@ -326,8 +327,36 @@ function badgeLine() {
   return `badge shows ${G.GAME_LIST.find(g => g.id === room.kind).name}${took}.`;
 }
 
+// Two host pages on one room would each publish their own game, and phones would flip between
+// them. The page opened last owns the room; any other stops writing until it is asked back.
+const hostToken = Math.random().toString(36).slice(2, 10);
+let owner = true;
+
+let claimedAt = 0;
+
+function claimRoom() {
+  owner = true;
+  claimedAt = Date.now();
+  relay.set(`${P}/owner`, hostToken);
+  dirty = boardDirty = true;
+  lastView = 0;
+  $('yield').hidden = true;
+  say(room.g ? 'hosting from this device.' : 'pick a game to start.');
+}
+
+function onOwner(value) {
+  const mine = String(value) === hostToken;
+  // The relay's stored copy from before this page claimed the room can land just after the claim.
+  if (!mine && Date.now() - claimedAt < 3000) return;
+  if (mine === owner) return;
+  owner = mine;
+  $('yield').hidden = mine;
+  if (!mine) say('another device is hosting this room now. this page has stopped.', true);
+}
+
 function loop() {
   const now = Date.now();
+  if (!owner) return;
   if (room.g) {
     if (room.kind === 'snake' && G.snakeLopsided(room, now)) room.g.until = now;
     if (G.tick(room, now, badgeInfo)) { dirty = saveDirty = boardDirty = true; }
@@ -380,7 +409,7 @@ function renderGames() {
 }
 
 async function start(kind) {
-  if (room.kind === kind && room.g) return;
+  if (!owner || (room.kind === kind && room.g)) return;
   G.startGame(room, kind, Date.now());
   lastYou.clear();
   lastKey = '';
@@ -393,6 +422,7 @@ async function start(kind) {
 }
 
 async function stop() {
+  if (!owner) return;
   room.kind = null;
   room.g = null;
   room.epoch = G.newRoom().epoch;
@@ -518,10 +548,17 @@ async function begin(secret) {
   room = load();
 
   relay = new Relay('hack.build games host');
-  relay.onUp = () => { dirty = boardDirty = true; lastView = 0; lights(); };
+  let claimed = false;
+  relay.onUp = () => {
+    dirty = boardDirty = true;
+    lastView = 0;
+    if (!claimed) { claimed = true; claimRoom(); }
+    lights();
+  };
   relay.onDown = () => lights();
   badge = new Badge(relay);
   badge.onState = lights;
+  relay.on(`${P}/owner`, onOwner);
   relay.on(`${P}/in/*`, onInput);
   relay.on(`${P}/who/*`, onWho);
   relay.on(`${P}/beat`, onBeat);
@@ -561,6 +598,7 @@ $('gateForm').addEventListener('submit', e => {
   begin(k);
 });
 $('stop').addEventListener('click', stop);
+$('yield').addEventListener('click', () => claimRoom());
 $('copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(joinUrl); $('copy').textContent = 'copied'; } catch (e) { $('copy').textContent = 'copy failed'; }
   setTimeout(() => { $('copy').textContent = 'copy the link'; }, 2000);
