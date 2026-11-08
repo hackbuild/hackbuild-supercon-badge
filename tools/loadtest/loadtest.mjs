@@ -31,7 +31,7 @@ async function phone(n) {
     seq++;
     waiting.set(seq, Date.now());
     stats.inputs++;
-    c.set(`${P}/in/${pid}`, JSON.stringify({ e: view.epoch, s: seq, t, ...body }));
+    c.set(`${P}/in/${pid}`, JSON.stringify({ ...body, e: view.epoch, s: seq, t }));
   };
   c.on(`${P}/view`, v => { stats.rx++; stats.views++; try { view = JSON.parse(v); } catch (e) {} });
   c.on(`${P}/board`, () => { stats.rx++; });
@@ -44,7 +44,7 @@ async function phone(n) {
     if (!first.done) { stats.lat.push(Date.now() - waiting.get(first.value)); waiting.delete(first.value); stats.answered++; }
     waiting.clear();
   });
-  c.set(`${P}/who/${pid}`, `load ${n}`);
+  c.set(`${P}/who/${pid}`, JSON.stringify({ name: `load ${n}` }));
   c.emit(`${P}/beat`, pid);
   const beat = setInterval(() => c.emit(`${P}/beat`, pid), 10_000);
   const end = Date.now() + SECONDS * 1000;
@@ -62,12 +62,17 @@ async function phone(n) {
     } else if (view.kind === 'hill') {
       if (view.phase === 'answer' && answeredRound !== view.round) {
         answeredRound = view.round;
-        send('answer', { a: `${QUIPS[Math.floor(Math.random() * QUIPS.length)]} ${n}` });
-      } else if (view.phase === 'vote' && you && you.hill && you.hill.r === view.round && you.hill.i >= 0) {
-        const i = you.hill.i;
-        you.hill.i = -1;
-        send('vote', { r: view.round, i, w: Math.random() < 0.5 ? 'c' : 'h' });
+        send('answer', { r: view.round, a: `${QUIPS[Math.floor(Math.random() * QUIPS.length)]} ${n}` });
+      } else if (view.phase === 'vote' && you && you.r === view.round && you.pair && you.pair.length) {
+        const { k, pair } = you;
+        you.pair = [];
+        send('vote', { r: view.round, k, pick: pair[Math.floor(Math.random() * pair.length)].i });
       }
+    } else if (view.kind === 'parts' && view.phase === 'ask' && you && you.r === view.round && !you.ok && you.tries < 3 && Math.random() < 0.3) {
+      send('guess', { r: view.round, text: ['dip8', 'sot23', 'to220', 'qfn56', 'esp32'][Math.floor(Math.random() * 5)] });
+    } else if (view.kind === 'ink' && Math.random() < 0.5) {
+      const x = Math.floor(Math.random() * 900), y = Math.floor(Math.random() * 620);
+      send('ink', { p: view.page, st: [`0,1,${x},${y},${x + 20},${y + 15},${x + 40},${y}`] });
     }
   }
   clearInterval(beat);

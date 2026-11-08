@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crowd Games Stage</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/ui.css">
+<script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" crossorigin="anonymous"></script>
+<style>
+html,body{height:100%}
+body{background:var(--void);color:var(--raised);overflow:hidden}
+#stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,24vw);gap:2vw;height:100%;padding:2vw;box-sizing:border-box}
+#screenBox{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+#screen{max-width:100%;max-height:100%;aspect-ratio:960/672;background:#fff;box-shadow:.6vw .6vw 0 var(--pink)}
+aside{display:grid;grid-template-rows:auto auto auto 1fr;gap:1.4vw;min-height:0}
+#qr{width:100%;aspect-ratio:1;background:#fff;image-rendering:pixelated}
+#room{font:clamp(40px,6vw,120px)/1 var(--inst);letter-spacing:.08em;color:var(--raised)}
+#url{font:600 clamp(12px,1vw,18px) var(--mono);color:#cfc8ba;overflow-wrap:anywhere}
+#game{font:clamp(22px,2.4vw,48px)/1.05 var(--disp);margin:0}
+#count{font:clamp(18px,1.4vw,26px) var(--mono)}
+ol{margin:0;padding:0;list-style:none;font:clamp(14px,1.3vw,24px)/1.5 var(--mono);overflow:hidden}
+#off{position:fixed;left:2vw;bottom:2vw;font:600 14px var(--mono);color:#ff8a80}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="screenBox"><canvas id="screen" width="960" height="672" aria-label="the game, as the badge shows it"></canvas></div>
+  <aside>
+    <canvas id="qr" width="400" height="400" aria-label="qr code to join"></canvas>
+    <div><div id="room">----</div><div id="url"></div></div>
+    <div><h1 id="game">waiting for a game</h1><div id="count"></div></div>
+    <ol id="top"></ol>
+  </aside>
+</div>
+<div id="off" hidden>reconnecting</div>
+
+<script type="module">
+import { Relay } from './lib/relay.js';
+import { paths, joinUrl, PUBLIC_BASE } from './lib/protocol.js';
+import * as S from './lib/screen.js';
+import { gameMeta, screenFor } from './games/registry.js';
+
+const $ = id => document.getElementById(id);
+const room = (location.hash.slice(1).toUpperCase().match(/^[A-Z0-9]{4}/) || [''])[0];
+const p = paths(room);
+const c = $('screen').getContext('2d');
+const ink = Object.assign(document.createElement('canvas'), { width: S.W, height: S.H });
+const ic = ink.getContext('2d');
+let stage = null, screen = null, kind = '', tick = 0, inkFresh = true, epoch = '';
+
+function showJoin(url) {
+  $('room').textContent = room;
+  $('url').textContent = url.replace('https://', '');
+  const q = $('qr').getContext('2d');
+  q.fillStyle = '#fff';
+  q.fillRect(0, 0, 400, 400);
+  S.qr(q, url, 0, 0, 400);
+}
+
+function draw() {
+  S.clear(c, S.palette(true));
+  if (!stage || !stage.kind || !screen) {
+    S.text(c, 'scan the code to join', { x: 60, y: 120, w: 840, h: 300 }, { size: 110, valign: 'middle', align: 'center' });
+    S.text(c, `room ${room}`, { x: 60, y: 440, w: 840, h: 120 }, { font: `600 {}px ${S.MONO}`, size: 80, align: 'center' });
+    return;
+  }
+  if (screen.live) c.drawImage(ink, 0, 0);
+  screen.draw(c, stage.model, { color: true, stage: true, join: stage.join, tick });
+}
+
+async function onStage(value) {
+  try { stage = JSON.parse(value); } catch (e) { return; }
+  if (stage.kind !== kind) {
+    kind = stage.kind || '';
+    screen = kind ? await screenFor(kind) : null;
+    inkFresh = true;
+    ic.fillStyle = '#fff';
+    ic.fillRect(0, 0, S.W, S.H);
+  }
+  $('game').textContent = kind ? gameMeta(kind).name : 'waiting for a game';
+  $('count').textContent = `${stage.players} phone${stage.players === 1 ? '' : 's'} playing`;
+  $('top').replaceChildren(...(stage.top || []).map(([n, s], i) => Object.assign(document.createElement('li'), { textContent: `${i + 1}. ${n}, ${s}` })));
+  if (stage.join) showJoin(stage.join.url);
+  draw();
+}
+
+await S.loadFonts();
+showJoin(joinUrl(room, location.hostname.endsWith('github.io') ? PUBLIC_BASE : new URL('.', location.href).href));
+const relay = new Relay('hack.build stage');
+relay.onUp = () => { $('off').hidden = true; };
+relay.onDown = () => { $('off').hidden = false; };
+relay.on(p.stage, onStage);
+relay.on(p.view, v => { try { epoch = JSON.parse(v).epoch; } catch (e) { /* not a view */ } });
+relay.on(p.live, v => {
+  if (!screen || !screen.live) return;
+  const s = String(v), bar = s.indexOf('|');
+  if (s.slice(0, bar) !== epoch) return;
+  screen.applyBatch(ic, s.slice(bar + 1), 1, true);
+  draw();
+});
+relay.on(p.media('ink'), url => {
+  if (!url || !inkFresh) return;
+  inkFresh = false;
+  const img = new Image();
+  img.onload = () => { ic.drawImage(img, 0, 0, S.W, S.H); draw(); };
+  img.src = String(url);
+});
+relay.start();
+setInterval(() => { tick++; if (kind === 'cinema') draw(); }, 250);
+draw();
+</script>
+</body>
+</html>

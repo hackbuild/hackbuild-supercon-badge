@@ -22,7 +22,7 @@ _SCK, _SDA, _MISO = _epd.EPD_SCL_PIN, _epd.EPD_SDA_PIN, _epd.EPD_SPI_MISO_PIN
 
 _HALF_PLANE = const(40320)  # 60 bytes x 672 lines, for each of the two controllers
 _OTP_LEN = const(88)
-_PASSES = const(3)
+PASSES = 3
 _BUS_HZ = const(20_000_000)
 _BUSY_TIMEOUT_MS = const(20_000)
 
@@ -287,29 +287,55 @@ async def _stop_booster():
     await _wait(True, 2000)
 
 
-async def show():
-    """Shows the framebuffers. Returns milliseconds, or None if the caller should use a color update."""
+_hot = False
+_zero = None
+
+
+async def show(passes=PASSES, stay_on=False):
+    """Shows the framebuffers. Returns milliseconds, or None if the caller should use a color update.
+
+    Three passes give a clean image. One pass takes a third of the time and leaves faint ghosts,
+    which suits live drawing and flip books as long as a clean refresh follows now and then.
+    stay_on leaves the booster running, so the next show skips about half a second of power up and
+    down; whoever asks for it calls cool() once the screen goes quiet.
+    """
+    global _hot, _zero
     if _failed or (_otp is None and not await _load_calibration()):
         return None
     t0 = time.ticks_ms()
+    if _zero is None:
+        _zero = bytes(_HALF_PLANE)
     _split(_bufs[0], _bufs[1], display._framebuffer_black, display._framebuffer_red)
-    await _reset(5, 2, 4, 20)
     ok = False
     try:
-        zero = bytes(_HALF_PLANE)
-        _write_frame(zero)
-        del zero
-        if await _start_booster():
+        if _hot:
+            _write_frame(_zero)
             ok = True
-            for _ in range(_PASSES):
+        else:
+            await _reset(5, 2, 4, 20)
+            _write_frame(_zero)
+            ok = await _start_booster()
+        if ok:
+            for _ in range(max(1, passes)):
                 ok = ok and await _pass()
-        await _stop_booster()
+        _hot = ok and stay_on
     finally:
-        await _park()
+        if not _hot:
+            await _stop_booster()
+            await _park()
     if not ok:
         print("hb_fast: refresh failed, falling back to a color update")
         return None
     return time.ticks_diff(time.ticks_ms(), t0)
+
+
+async def cool():
+    """Powers the panel down after a run of stay_on shows."""
+    global _hot
+    if _hot:
+        _hot = False
+        await _stop_booster()
+        await _park()
 
 
 # ---- faster data for the stock color update ----

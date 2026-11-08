@@ -15,7 +15,7 @@ import time
 
 import network
 
-from lib import hb_state
+from lib import hb_ink, hb_state
 from lib.board import reg_in_v_sns
 from lib.hb_clasp import Clasp
 from lib.led_bar import leds
@@ -29,13 +29,20 @@ PING_EVERY_S = 15
 RENEW_AFTER_S = 240
 
 
-def _hmac(key, msg):
-    block = key + b"\0" * (64 - len(key))
-    inner = hashlib.sha256(bytes(b ^ 0x36 for b in block))
-    inner.update(msg)
-    outer = hashlib.sha256(bytes(b ^ 0x5C for b in block))
-    outer.update(inner.digest())
-    return outer.digest()
+class _Hmac:
+    """HMAC-SHA256 with the pads worked out once, since live ink checks several messages a second."""
+
+    def __init__(self, key):
+        block = key + b"\0" * (64 - len(key))
+        self.ipad = bytes(b ^ 0x36 for b in block)
+        self.opad = bytes(b ^ 0x5C for b in block)
+
+    def __call__(self, msg):
+        inner = hashlib.sha256(self.ipad)
+        inner.update(msg)
+        outer = hashlib.sha256(self.opad)
+        outer.update(inner.digest())
+        return outer.digest()
 
 
 def _hex(b):
@@ -46,6 +53,9 @@ class Link:
     def __init__(self, switcher):
         self.switcher = switcher
         self.key = hb_state.config["key"].encode()
+        self.sign = _Hmac(self.key)
+        self.ink_sid = ""
+        self.ink_seq = -1
         self.room = _hex(hashlib.sha256(self.key).digest())[:16]
         self.base = "/hb/badge/" + self.room
         self.nonce = _hex(os.urandom(8))
@@ -62,7 +72,7 @@ class Link:
             from apps.b_capsule import CapsuleApp
             if CapsuleApp._instance:
                 CapsuleApp._instance.jump = CapsuleApp._instance.index
-        names = {"logo": "hack.build", "capsule": "Capsule", "image": "Sent"}
+        names = {"logo": "hack.build", "capsule": "Capsule", "image": "Sent", "play": "Play"}
         sw = self.switcher
         for i, a in enumerate(sw.apps):
             if a.name == names.get(app):
@@ -91,10 +101,27 @@ class Link:
             self.on_command(value)
         elif address == self.base + "/chunk":
             self.on_chunk(value)
+        elif address == self.base + "/ink":
+            self.on_ink(value)
+
+    def on_ink(self, envelope):
+        """A live ink batch: "session:seq:sig:strokes". Signed like commands, but numbered instead of
+        nonced, since a stream cannot wait a round trip per message."""
+        try:
+            sid, seq, sig, data = envelope.split(":", 3)
+            seq = int(seq)
+        except ValueError:
+            return
+        if _hex(self.sign(("%s:%d:%s" % (sid, seq, data)).encode()))[:32] != sig:
+            return
+        if sid == self.ink_sid and seq <= self.ink_seq:
+            return
+        self.ink_sid, self.ink_seq = sid, seq
+        hb_ink.apply(data)
 
     def on_command(self, envelope):
         sig, _, body = envelope.partition(":")
-        if _hex(_hmac(self.key, body.encode())) != sig:
+        if _hex(self.sign(body.encode())) != sig:
             print("hb_link: bad signature")
             return
         msg = json.loads(body)
@@ -138,14 +165,24 @@ class Link:
         elif cmd == "led":
             leds.clear_sequence()
             leds.fill(tuple(max(0, min(32, int(c))) for c in val))
-        elif cmd == "img":
+        elif cmd == "play":
+            # mode is join, frame, ink or reel. ink with keep draws over the screen already there.
+            from apps.d_play import PlayApp
+            if PlayApp._instance:
+                if val.get("mode") == "ink" and val.get("keep") is False:
+                    hb_ink.clear()
+                PlayApp._instance.set_mode(val.get("mode", "join"))
+                self.goto("play")
+        elif cmd in ("img", "reel"):
             size = int(val["size"])
             if size > CHUNK_LIMIT:
                 self.fail("image too large")
                 return
             gc.collect()
+            # A screen for the Play app or a reel goes there; anything else is a message for Sent.
+            to = "reel" if cmd == "reel" else "play" if val.get("to") == "play" else "sent"
             self.transfer = {"id": val["id"], "size": size, "sha": val["sha"], "next": 0,
-                             "color": bool(val.get("color")),
+                             "color": bool(val.get("color")), "to": to, "then": val.get("then", ""),
                              "got": 0, "buf": bytearray(size)}
             self.send("/ack", val["id"] + ":-1")
 
@@ -179,15 +216,22 @@ class Link:
         if _hex(hashlib.sha256(t["buf"]).digest()) != t["sha"]:
             self.fail("image failed its checksum")
             return
-        color = t["color"]
-        with open(hb_state.SENT_PATH, "wb") as f:
+        color, to, then = t["color"], t["to"], t["then"]
+        from apps.d_play import FRAME_PATH, REEL_PATH, PlayApp
+        path = {"reel": REEL_PATH, "play": FRAME_PATH}.get(to, hb_state.SENT_PATH)
+        with open(path, "wb") as f:
             f.write(t["buf"])
         del t
         gc.collect()
         hb_state.status["err"] = ""
         if color:
             hb_state.want_color_once()
-        self.goto("image")
+        if to == "sent" or not PlayApp._instance:
+            self.goto("image")
+            return
+        # A frame followed by live ink becomes the page the crowd draws on.
+        PlayApp._instance.set_mode("reel" if to == "reel" else "inkframe" if then == "ink" else "frame")
+        self.goto("play")
 
     def send(self, suffix, text):
         self.outbox.append((suffix, text))
@@ -292,6 +336,7 @@ class Link:
         await self.client.subscribe(self.base + "/cmd", 1)
         await self.client.subscribe(self.base + "/chunk", 2)
         await self.client.subscribe(self.base + "/keep", 3)
+        await self.client.subscribe(self.base + "/ink", 4)
         self.last_rx = time.time()
         hb_state.changed()
         reader = aio.create_task(self.client.run())

@@ -1,7 +1,7 @@
 """Copies the hack.build apps to the badge and hooks them into its stock main.py.
 
 Needs badge/secret.local.json with networks and key, and backup-stock/main.py.
-Run: uv run --no-project --with mpremote python tools/deploy.py /dev/cu.usbmodem101
+Run: uv run --no-project --with mpremote --with qrcode --with pillow python tools/deploy.py /dev/cu.usbmodem101
 """
 import json
 import pathlib
@@ -37,6 +37,7 @@ def main():
         tmp = pathlib.Path(tmp)
         (tmp / "main.py").write_text(patched)
         (tmp / "config.json").write_text(json.dumps(secret))
+        subprocess.run([sys.executable, str(ROOT / "tools" / "join_screen.py"), str(tmp / "join.z")], check=True)
         mp("exec", "import os\ntry:\n    os.mkdir('/data/hb')\nexcept OSError:\n    pass\n"
            "for f in os.listdir('/data/hb'):\n    if f.endswith('.png') or f == 'state.json':\n        os.remove('/data/hb/' + f)")
         args = []
@@ -45,7 +46,8 @@ def main():
         for sub in ("apps", "lib"):
             for f in sorted((ROOT / "badge" / sub).glob("*.py")):
                 args += ["fs", "cp", str(f), f":/{sub}/{f.name}", "+"]
-        args += ["fs", "cp", str(tmp / "config.json"), ":/data/hb/config.json", "+",
+        args += ["fs", "cp", str(tmp / "join.z"), ":/data/hb/join.z", "+",
+                 "fs", "cp", str(tmp / "config.json"), ":/data/hb/config.json", "+",
                  "fs", "cp", str(tmp / "main.py"), ":/main.py"]
         mp(*args)
     print("copied. press reset on the badge or run: mpremote reset")

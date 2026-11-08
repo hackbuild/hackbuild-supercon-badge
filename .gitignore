@@ -4,3 +4,4 @@ badge/secret.local.json
 __pycache__/
 .hbf/
 node_modules/
+tools/parts/.cache/

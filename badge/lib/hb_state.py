@@ -20,6 +20,8 @@ status = {"app": "logo", "slide": 0, "slides": 0, "ip": "", "rssi": 0, "err": ""
           "fast_ms": 0, "color_ms": 0, "load_ms": 0, "wifi": ""}
 _force_color = False
 _fast_running = False
+# Set while a reel plays, so the panel reads busy between its frames and nothing cuts in.
+holding = False
 _since_color = 0
 _dirty = True
 
@@ -64,7 +66,7 @@ def remember(app):
 
 def panel_idle():
     # The driver drops an update asked for during a refresh, so nothing draws until it is idle.
-    return not _fast_running and display.is_done_updating() and not display._framebuffer_ready.is_set()
+    return not _fast_running and not holding and display.is_done_updating() and not display._framebuffer_ready.is_set()
 
 
 def want_color_once():
@@ -89,6 +91,38 @@ async def _fast_then_report(t0):
         print("hb: fast screen in", status["fast_ms"], "ms")
     _fast_running = False
     changed()
+
+
+async def refresh(passes, stay_on=False):
+    """Draws whatever is in the framebuffers now, fast. False when fast mode is unavailable."""
+    global _fast_running
+    _fast_running = True
+    changed()
+    try:
+        ms = await hb_fast.show(passes, stay_on)
+    except Exception as ex:
+        sys.print_exception(ex)
+        ms = None
+    _fast_running = False
+    if ms is not None:
+        status["fast_ms"] = ms
+    changed()
+    return ms is not None
+
+
+def load(path, offset=0):
+    """Inflates one screen into the framebuffers, from a file or one frame inside a file."""
+    try:
+        with open(path, "rb") as f:
+            if offset:
+                f.seek(offset)
+            z = deflate.DeflateIO(f, deflate.ZLIB)
+            black = z.readinto(memoryview(display._framebuffer_black))
+            red = z.readinto(memoryview(display._framebuffer_red))
+    except (OSError, ValueError) as ex:
+        print("hb_state: cannot load", path, ex)
+        return False
+    return black == PLANE and red == PLANE
 
 
 def show(path):

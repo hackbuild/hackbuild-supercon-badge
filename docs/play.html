@@ -5,93 +5,38 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1a1a1a">
 <title>hack.build Crowd Games</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/ui.css">
 <script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
 <style>
-:root{
-  --pink:#FE0386;--paper:#f5f0e6;--raised:#fffdf7;--sunk:#efe9db;--ink:#1a1a1a;--ink2:#444;--ink3:#6b6459;--void:#0a0a0a;--red:#d0021b;
-  --err:#c3251f;--ok:#1f7a3a;
-  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--disp:'Permanent Marker',cursive;--type:'Special Elite',serif;--inst:'VT323',monospace;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--tap:48px;
-}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.4 var(--mono);min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
-button,input,textarea{font:inherit;color:inherit;border-radius:0}
-button{cursor:pointer;min-height:var(--tap);touch-action:manipulation}
-button:disabled{cursor:not-allowed}
-[hidden]{display:none !important}
-:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
-input,textarea{background:var(--raised);border:2px solid var(--ink);padding:var(--s3);width:100%;min-height:var(--tap);font-size:18px}
-label{display:block;font-weight:600;font-size:14px;margin-bottom:var(--s1)}
-.prose{font:16px/1.4 var(--type);color:var(--ink2);margin:var(--s2) 0 0}
-.btn{background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s4);font-weight:600;width:100%}
-.btn:active:not(:disabled){transform:translate(2px,2px)}
-.btn:disabled{color:var(--ink3);border-color:var(--ink3);background:var(--sunk)}
-.go{background:var(--pink);color:var(--ink);box-shadow:3px 3px 0 var(--ink);font-size:18px;padding:var(--s3)}
-.go:disabled{box-shadow:none}
+body{padding-bottom:env(safe-area-inset-bottom)}
 .wrap{max-width:560px;margin:0 auto;padding:var(--s4)}
-
-header{background:var(--ink);color:var(--raised);padding:var(--s3) var(--s4);padding-top:calc(var(--s3) + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
-header h1{font:22px/1 var(--disp);margin:0}
-#pill{font:600 12px var(--mono);padding:var(--s1) var(--s2);border:2px solid currentColor;white-space:nowrap}
+header{background:var(--ink);color:var(--raised);padding:var(--s3) var(--s4);padding-top:calc(var(--s3) + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;gap:var(--s3);position:sticky;top:0;z-index:2}
+header h1{font-size:22px;line-height:1}
+#pill{font:600 12px var(--mono);padding:var(--s1) var(--s2);border:2px solid currentColor;white-space:nowrap;display:inline-flex;align-items:center;gap:var(--s2)}
+#pill i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
 #pill.ok{color:#7ee2a0}
 #pill.bad{color:#ff8a80}
 #me{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);padding:var(--s3) var(--s4);border-bottom:2px solid var(--ink);background:var(--raised)}
-#me b{font:28px/1 var(--inst)}
-#me span{font-size:13px;color:var(--ink2)}
+#me b{font:30px/1 var(--inst)}
 #note{padding:var(--s3) var(--s4);background:var(--ink);color:var(--raised);font-weight:600}
 #note.bad{background:var(--err)}
-
-h2{font:30px/1.05 var(--disp);margin:var(--s2) 0 var(--s3)}
-.q{font:600 20px/1.3 var(--mono);margin:0 0 var(--s3)}
-.timer{font:40px/1 var(--inst)}
-.split{display:flex;justify-content:space-between;align-items:center;gap:var(--s3)}
-.stack{display:grid;gap:var(--s3)}
-
-/* pixel */
-#pxWrap{position:relative;border:3px solid var(--ink);background:#fff;touch-action:none}
-#px{width:100%;height:auto;display:block;image-rendering:pixelated;touch-action:none}
-.palette{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2)}
-.palette button{border:2px solid var(--ink);font-weight:600}
-.palette button[aria-pressed=true]{outline:4px solid var(--ink);outline-offset:2px}
-#inkBar{height:14px;border:2px solid var(--ink);background:var(--raised)}
-#inkBar i{display:block;height:100%;background:var(--ink)}
-
-/* hill */
-.card{border:3px solid var(--ink);background:var(--raised);padding:var(--s4);text-align:left;width:100%;font:600 20px/1.3 var(--mono);box-shadow:4px 4px 0 var(--ink)}
-.card small{display:block;font:600 12px var(--mono);color:var(--ink3);margin-bottom:var(--s2)}
-.card:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
-.vs{text-align:center;font:24px var(--disp)}
-.champ{background:var(--ink);color:var(--raised);padding:var(--s4)}
-.champ p{font:24px/1.15 var(--disp);margin:var(--s2) 0}
-.champ small{font-size:12px;color:var(--sunk)}
-
-/* snipe */
-#code{font:700 40px/1 var(--mono);text-transform:uppercase;letter-spacing:.2em;text-align:center}
-
-/* snake */
-#sn{width:100%;height:auto;display:block;border:3px solid var(--ink);background:#fff}
-.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,64px);gap:var(--s2);max-width:300px;margin:0 auto}
-.pad button{border:3px solid var(--ink);background:var(--raised);font:28px var(--disp)}
-.pad button[aria-pressed=true]{background:var(--ink);color:var(--raised)}
-.bars{display:grid;gap:var(--s1);font-size:13px}
-.bars div{display:grid;grid-template-columns:48px minmax(0,1fr) 32px;gap:var(--s2);align-items:center}
-.bars i{display:block;height:12px;background:var(--ink)}
-
+#credit{margin:var(--s4) var(--s4) 0;border:3px solid var(--ink);background:var(--raised);box-shadow:5px 5px 0 var(--ink);padding:var(--s4);display:grid;gap:var(--s3)}
+#credit h2{font-size:26px}
+#creditCode{font:56px/1 var(--inst);letter-spacing:.12em}
+#slot{display:grid;gap:var(--s3)}
+footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3)}
 #top{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
 #top li{display:flex;justify-content:space-between;gap:var(--s3);font-size:14px}
 #top li.mine{font-weight:700}
-footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3)}
-footer h3{font:600 13px var(--mono);margin:0 0 var(--s2);color:var(--ink3)}
-@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+.hero{font-size:40px;line-height:1.05;margin:var(--s2) 0 var(--s3)}
 </style>
 </head>
 <body>
 
 <main id="joinView" class="wrap" hidden>
-  <h2 style="font-size:40px">crowd games on a badge</h2>
-  <p class="prose">your phone is the controller. the badge on the person in front of you is the screen everyone sees.</p>
+  <h1 class="hero">crowd games on a badge</h1>
+  <p class="prose">your phone is the controller. the e-paper badge on the person in front of you is the screen everyone sees.</p>
   <form id="joinForm" class="stack" style="margin-top:var(--s5)">
     <div>
       <label for="name">your name on the leaderboard</label>
@@ -103,10 +48,10 @@ footer h3{font:600 13px var(--mono);margin:0 0 var(--s2);color:var(--ink3)}
 </main>
 
 <main id="noRoom" class="wrap" hidden>
-  <h2>no room in this link</h2>
-  <p class="prose">scan the code on the badge again, or ask the person wearing it for the room code.</p>
+  <h1 class="hero">no room in this link</h1>
+  <p class="prose">scan the code on the badge again, or type the room code it shows.</p>
   <form id="roomForm" class="stack" style="margin-top:var(--s4)">
-    <div><label for="roomIn">room code</label><input id="roomIn" maxlength="4" autocapitalize="characters" spellcheck="false"></div>
+    <div><label for="roomIn">room code</label><input id="roomIn" class="code" maxlength="4" autocapitalize="characters" spellcheck="false"></div>
     <button class="btn go" type="submit">open the room</button>
   </form>
 </main>
@@ -114,118 +59,79 @@ footer h3{font:600 13px var(--mono);margin:0 0 var(--s2);color:var(--ink3)}
 <div id="game" hidden>
   <header>
     <h1 id="title">crowd games</h1>
-    <span id="pill" role="status">connecting</span>
+    <span id="pill" role="status"><i></i><span id="pillText">connecting</span></span>
   </header>
-  <div id="me"><div><b id="score">0</b> <span id="pts">points</span></div><span id="rank">not ranked yet</span></div>
+  <div id="me"><div><b id="score">0</b> <span id="pts">points</span></div><span id="rank" class="small">not ranked yet</span></div>
   <div id="note" role="alert" hidden></div>
+  <section id="credit" hidden aria-live="polite">
+    <h2>you won a capsule credit</h2>
+    <p class="prose" id="creditWhy"></p>
+    <div id="creditNfc" class="stack">
+      <p class="prose">grab a blank coin from the bowl by the capsule machine. press the button, then hold the coin to the back of your phone.</p>
+      <button class="btn go" id="creditWrite">load it onto a coin</button>
+    </div>
+    <div id="creditCodeBox" class="stack">
+      <p class="prose" id="creditCodeHint">this browser cannot write to a coin. show this code to the person wearing the badge and they will hand you one.</p>
+      <div id="creditCode"></div>
+    </div>
+    <p class="result" id="creditStatus"></p>
+    <button class="btn quiet" id="creditHide">hide this</button>
+  </section>
+  <button id="creditMini" class="btn quiet" hidden style="margin:var(--s2) var(--s4) 0">your capsule credit, tap to show</button>
   <main class="wrap">
-    <section id="waitPane" class="stack">
-      <h2>waiting for a game</h2>
+    <section id="waiting" class="stack">
+      <h2 class="big">waiting for a game</h2>
       <p class="prose">the host picks the game. this page changes by itself when one starts. keep it open.</p>
     </section>
-
-    <section id="pixelPane" class="stack" hidden>
-      <div class="split"><h2 id="pxPrompt" style="margin:0">draw</h2><span id="pxPainters"></span></div>
-      <div id="pxWrap"><canvas id="px" width="720" height="480" aria-label="the shared canvas. drag to paint."></canvas></div>
-      <div class="palette" role="group" aria-label="paint color">
-        <button data-c="1" aria-pressed="true" style="background:#000;color:#fff">black</button>
-        <button data-c="2" aria-pressed="false" style="background:var(--red);color:#fff">red</button>
-        <button data-c="0" aria-pressed="false" style="background:#fff">eraser</button>
-      </div>
-      <div>
-        <div class="split" style="font-size:14px"><span>ink</span><span id="inkText"></span></div>
-        <div id="inkBar" aria-hidden="true"><i id="inkFill"></i></div>
-      </div>
-      <button class="btn" id="pxShown" aria-pressed="false">show what the badge shows</button>
-      <p class="prose" id="pxBadge"></p>
-    </section>
-
-    <section id="hillPane" class="stack" hidden>
-      <div class="split"><span id="hillPhase" style="font-weight:600"></span><span class="timer" id="hillLeft"></span></div>
-      <div class="champ" id="hillChamp"><small>on the hill now</small><p id="hillChampText"></p><small id="hillChampBy"></small></div>
-      <div id="hillAnswer" class="stack">
-        <p class="q" id="hillQ"></p>
-        <div><label for="hillA">your answer</label><input id="hillA" maxlength="48" autocapitalize="off" placeholder="48 letters at most"></div>
-        <button class="btn go" id="hillSend">send my answer</button>
-        <p class="prose" id="hillSent"></p>
-      </div>
-      <div id="hillVote" class="stack" hidden>
-        <p class="q">which one deserves the badge?</p>
-        <button class="card" id="voteH"><small>keep the hill</small><span></span></button>
-        <div class="vs">or</div>
-        <button class="card" id="voteC"><small>the challenger</small><span></span></button>
-        <p class="prose" id="votesLeft"></p>
-      </div>
-      <div id="hillResult" class="stack" hidden>
-        <h2 id="hillResultHead"></h2>
-        <p class="prose" id="hillResultMine"></p>
-      </div>
-    </section>
-
-    <section id="snipePane" class="stack" hidden>
-      <h2 id="snipeHead">watch the badge</h2>
-      <p class="prose" id="snipeHint"></p>
-      <form id="snipeForm" class="stack">
-        <div><label for="code">code on the badge</label><input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" inputmode="text"></div>
-        <button class="btn go" type="submit" id="snipeGo">claim it</button>
-      </form>
-      <p class="prose" id="snipeResult"></p>
-      <div><h3 style="font-size:14px;margin:var(--s3) 0 var(--s2)">this round</h3><ol id="claims" style="margin:0;padding-left:var(--s5)"></ol></div>
-    </section>
-
-    <section id="snakePane" class="stack" hidden>
-      <div class="split"><span id="snScore" style="font-weight:600"></span><span class="timer" id="snLeft"></span></div>
-      <canvas id="sn" width="600" height="480" aria-label="the snake board"></canvas>
-      <div class="pad" role="group" aria-label="vote a direction">
-        <span></span><button data-d="U" aria-label="up">^</button><span></span>
-        <button data-d="L" aria-label="left">&lt;</button><span></span><button data-d="R" aria-label="right">&gt;</button>
-        <span></span><button data-d="D" aria-label="down">v</button><span></span>
-      </div>
-      <div class="bars" id="bars"></div>
-    </section>
-
+    <section id="slot"></section>
     <footer>
       <h3>leaderboard, all games</h3>
       <ol id="top"></ol>
+      <p class="small" style="margin-top:var(--s3)">playing as <b id="me-name"></b>. <button class="btn quiet" id="rename" style="min-height:0;padding:0">change name</button></p>
     </footer>
   </main>
 </div>
 
 <script type="module">
-import { Relay, code } from './lib/relay.js';
-import { PROTOCOL, PIX_C, PIX_R, SNAKE_C, SNAKE_R } from './lib/games.js';
+import { Relay } from './lib/relay.js';
+import { PROTOCOL, paths, code } from './lib/protocol.js';
+import * as seal from './lib/seal.js';
+import * as credit from './lib/credit.js';
+import { gameMeta, phoneFor } from './games/registry.js';
 
 const $ = id => document.getElementById(id);
 const store = {
   get(k) { try { return localStorage.getItem(`hb.play.${k}`); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(`hb.play.${k}`, v); } catch (e) { /* private mode */ } },
 };
-const GAME_NAMES = { pixel: 'pixel commons', hill: 'the hill', snipe: 'flash snipe', snake: 'snake by committee' };
 
 let pid = store.get('pid');
 if (!pid) { pid = code(10); store.set('pid', pid); }
 let name = store.get('name') || '';
-let roomCode = '', pendingCode = '', P = '';
-let relay = null, view = null, viewAt = 0, you = null, board = null, hostAt = 0, startedAt = 0, seq = 0;
-let lastPhase = '', removed = false;
+let room = '', linkCode = '', p = null, relay = null, keys = null, hostKey = null;
+let view = null, viewAt = 0, you = null, board = null, hostAt = 0, startedAt = 0, seq = 0;
+let game = null, gameKind = '', loading = '', noteTimer = 0, removed = false;
+const liveSubs = new Set();
 
 function parseHash() {
   const h = decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^A-Z0-9.]/g, '');
   const [r, c] = h.split('.');
-  roomCode = /^[A-Z0-9]{4}$/.test(r || '') ? r : '';
-  pendingCode = /^[A-Z0-9]{4}$/.test(c || '') ? c : pendingCode;
+  room = /^[A-Z0-9]{4}$/.test(r || '') ? r : '';
+  linkCode = /^[A-Z0-9]{4}$/.test(c || '') ? c : linkCode;
 }
 
 function note(text, bad = false) {
+  clearTimeout(noteTimer);
   $('note').hidden = !text;
   $('note').textContent = text || '';
   $('note').className = bad ? 'bad' : '';
+  if (text && !removed) noteTimer = setTimeout(() => { $('note').hidden = true; }, bad ? 6000 : 4000);
 }
 
-// ---- sending ----
+// ---- talking to the host ----
 
 function nextSeq() {
-  const key = `seq.${roomCode}`;
+  const key = `seq.${room}`;
   seq = Math.max(seq, Number(store.get(key)) || 0) + 1;
   store.set(key, String(seq));
   return seq;
@@ -233,390 +139,205 @@ function nextSeq() {
 
 function send(t, body) {
   if (!view || !view.epoch) { note('no game is running yet.', true); return false; }
-  const ok = relay.set(`${P}/in/${pid}`, JSON.stringify({ e: view.epoch, s: nextSeq(), t, ...body }));
+  // e, s and t belong to the page: a game's own fields can never overwrite them.
+  const ok = relay.set(p.input(pid), JSON.stringify({ ...body, e: view.epoch, s: nextSeq(), t }));
   if (!ok) note('not connected right now. try again in a moment.', true);
   return ok;
 }
 
-function beat() { if (relay) relay.emit(`${P}/beat`, pid); }
+async function upload(text) {
+  if (!hostKey) { note('the host is not ready for uploads yet.', true); return false; }
+  try { return relay.set(p.upload(pid), await seal.seal(keys, hostKey, seal.te.encode(text))); } catch (e) { return false; }
+}
+
+function beat() { if (relay) relay.emit(p.beat, pid); }
+async function sayWho() { relay.set(p.who(pid), JSON.stringify({ name, key: await seal.publicJwk(keys) })); }
+
+const left = v => (v && v.left != null ? Math.max(0, v.left - (Date.now() - viewAt)) : 0);
+
+// What a game's phone module gets to work with.
+const api = {
+  pid,
+  get name() { return name; },
+  send, upload, note, left,
+  arrived: () => viewAt,
+  linkCode: () => linkCode,
+  clearLinkCode: () => { linkCode = ''; history.replaceState(null, '', `#${room}`); },
+  live(cb) { liveSubs.add(cb); return () => liveSubs.delete(cb); },
+  media(id, cb) { return relay.on(p.media(id), v => cb(String(v || ''))); },
+};
 
 // ---- receiving ----
 
 function hostAway() { return Date.now() - startedAt > 12_000 && Date.now() - hostAt > 20_000; }
 
 function status() {
-  const pill = $('pill');
-  if (!relay || !relay.up) { pill.textContent = 'reconnecting'; pill.className = 'bad'; return; }
-  if (hostAway()) { pill.textContent = 'host away'; pill.className = 'bad'; return; }
-  pill.textContent = 'live'; pill.className = 'ok';
+  const up = relay && relay.up, away = up && hostAway();
+  $('pillText').textContent = !up ? 'reconnecting' : away ? 'host away' : 'live';
+  $('pill').className = !up || away ? 'bad' : 'ok';
 }
 
-function leftMs() { return view && view.left != null ? Math.max(0, view.left - (Date.now() - viewAt)) : 0; }
-
-function onView(value) {
+async function onView(value) {
   let v;
   try { v = JSON.parse(value); } catch (e) { return; }
   if (v.v > PROTOCOL) { note('this page is out of date. reload it to keep playing.', true); return; }
-  const phase = `${v.epoch}.${v.kind}.${v.phase || ''}.${v.round || ''}.${v.turn != null ? '' : ''}`;
+  const fresh = v.kind !== gameKind || (view && v.epoch !== view.epoch);
   view = v;
   viewAt = Date.now();
-  if (phase !== lastPhase) {
-    lastPhase = phase;
-    if (v.kind !== 'snake') beat();
-  }
   if (you && you.e !== v.epoch) you = null;
+  if (fresh) await mountGame(v.kind);
   render();
 }
 
-function onYou(value) {
-  try { you = JSON.parse(value); } catch (e) { return; }
-  if (you.removed) { removed = true; note('the host removed you from the games, so your moves do not count. ask the person wearing the badge.', true); return; }
-  if (removed) { removed = false; note(''); }
-  if (view && you.e !== view.epoch) return;
-  if (you.hill && you.hill.note) note(you.hill.note, true);
-  if (you.snipe && you.snipe.note) note(you.snipe.note, true);
-  render();
-}
-
-function onBoard(value) {
-  try { board = JSON.parse(value); } catch (e) { return; }
-  renderMe();
-}
-
-// ---- drawing ----
-
-function renderMe() {
-  const s = board && board.s ? board.s : {};
-  const mine = s[pid] || 0;
-  $('score').textContent = mine;
-  $('pts').textContent = mine === 1 ? 'point' : 'points';
-  const all = Object.values(s);
-  $('rank').textContent = mine ? `${1 + all.filter(x => x > mine).length} of ${all.length}` : 'not ranked yet';
-  const ol = $('top');
-  ol.innerHTML = '';
-  for (const [n, sc] of (view && view.top) || []) {
-    const li = document.createElement('li');
-    li.innerHTML = '<span></span><b></b>';
-    li.firstChild.textContent = n;
-    li.lastChild.textContent = sc;
-    if (n === name) li.className = 'mine';
-    ol.append(li);
+async function mountGame(kind) {
+  if (loading && loading === kind) return;
+  loading = kind || '';
+  if (game && game.destroy) game.destroy();
+  game = null;
+  $('slot').replaceChildren();
+  gameKind = kind || '';
+  $('waiting').hidden = !!kind;
+  $('title').textContent = kind ? gameMeta(kind).name : 'crowd games';
+  if (!kind) { loading = ''; return; }
+  try {
+    const mod = await phoneFor(kind);
+    if (gameKind === kind) game = mod.mount($('slot'), api);
+  } catch (e) {
+    note('this game did not load. reload the page.', true);
   }
-  if (!ol.children.length) ol.innerHTML = '<li><span>nobody has scored yet.</span></li>';
+  loading = '';
+  beat();
 }
 
-function show(pane) {
-  for (const p of ['waitPane', 'pixelPane', 'hillPane', 'snipePane', 'snakePane']) $(p).hidden = p !== pane;
+async function onYou(value) {
+  let y;
+  try { y = JSON.parse(value); } catch (e) { return; }
+  if (y.removed) { removed = true; note('the host removed you from the games, so your moves do not count. ask the person wearing the badge.', true); return; }
+  if (removed) { removed = false; note(''); }
+  if (y.note) { note(y.note, true); return; }
+  if (y.credit) await onCredit(y.credit);
+  if (view && y.e !== view.epoch) return;
+  you = y;
+  render();
 }
 
 function render() {
   status();
   renderMe();
-  if (!view || !view.kind) { $('title').textContent = 'crowd games'; show('waitPane'); return; }
-  $('title').textContent = GAME_NAMES[view.kind];
-  show(`${view.kind}Pane`);
-  RENDER[view.kind]();
+  if (game && view && view.kind === gameKind) game.update(view, you);
 }
 
-const RENDER = {
-  pixel() {
-    $('pxPrompt').textContent = view.prompt;
-    $('pxPainters').textContent = `${view.painters} painted`;
-    drawPixels();
-    const ink = inkNow();
-    $('inkText').textContent = ink.max ? `${ink.n} of ${ink.max}${ink.n < ink.max ? `, +1 in ${Math.ceil(ink.next / 1000)} s` : ''}` : '';
-    $('inkFill').style.width = ink.max ? `${(100 * ink.n) / ink.max}%` : '0';
-    $('pxBadge').textContent = 'the badge reprints the canvas about every 6 s while people paint, in black and white. red prints black.';
-  },
-  hill() {
-    const ph = view.phase, s = Math.ceil(leftMs() / 1000);
-    $('hillPhase').textContent = ph === 'answer' ? `round ${view.round}, answer` : ph === 'vote' ? `round ${view.round}, vote` : `round ${view.round}, result`;
-    $('hillLeft').textContent = ph === 'result' ? '' : `${s}s`;
-    $('hillChampText').textContent = view.champ.text;
-    $('hillChampBy').textContent = view.starter ? 'a starter quip. any answer that wins its votes takes it.' : `by ${view.champ.name}, held ${view.champ.held} of 3 rounds`;
-    $('hillAnswer').hidden = ph !== 'answer';
-    $('hillVote').hidden = ph !== 'vote';
-    $('hillResult').hidden = ph !== 'result';
-    const h = you && you.hill;
-    if (ph === 'answer') {
-      $('hillQ').textContent = view.q;
-      $('hillSent').textContent = h && h.sent ? `sent: "${h.sent}". you can change it until the time runs out.` : `${view.subs} answers so far.`;
-      $('hillSend').textContent = h && h.sent ? 'change my answer' : 'send my answer';
-    } else if (ph === 'vote') {
-      const can = h && h.r === view.round && h.i >= 0 && h.text;
-      $('voteH').querySelector('span').textContent = view.champ.text;
-      $('voteC').querySelector('span').textContent = can ? h.text : '';
-      $('voteH').disabled = $('voteC').disabled = !can;
-      $('voteC').hidden = !can;
-      $('votesLeft').textContent = !h ? 'getting your matchup.' : h.none ? 'no other answers to vote on this round. yours still counts.' : h.i < 0 ? 'you have voted. the result shows when everyone is done.' : `${h.left} vote${h.left === 1 ? '' : 's'} left this round.`;
-    } else {
-      const r = view.result || {};
-      $('hillResultHead').textContent = r.took ? `new champion: ${r.name}` : `the hill held, ${view.champ.held} of 3`;
-      const m = h && h.mine;
-      $('hillResultMine').textContent = m ? `your answer won ${m.w} and lost ${m.l}.` : 'answer next round to take a shot at the badge.';
-    }
-  },
-  snipe() {
-    const s = Math.ceil(leftMs() / 1000);
-    $('snipeHead').textContent = view.live ? `code live, ${s}s` : 'watch the badge';
-    $('snipeHint').textContent = view.live ? 'scan the qr code on the badge, or type the 4 letters.' : 'a new code appears when the badge finishes drawing.';
-    const r = you && you.snipe;
-    $('snipeResult').textContent = r && r.r === view.round && r.pts ? `claimed. ${ordinal(r.place)} in ${(r.ms / 1000).toFixed(1)} s, +${r.pts} points.` : '';
-    const ol = $('claims');
-    ol.innerHTML = '';
-    for (const [n, ms, pts] of view.claims || []) {
-      const li = document.createElement('li');
-      li.textContent = `${n}, ${(ms / 1000).toFixed(1)} s, +${pts}`;
-      ol.append(li);
-    }
-    if (!ol.children.length) ol.innerHTML = '<li>nobody yet</li>';
-    if (pendingCode && view.live) { const c = pendingCode; pendingCode = ''; claim(c); }
-  },
-  snake() {
-    $('snScore').textContent = view.over ? 'game over' : `score ${view.score}, best ${view.best}`;
-    $('snLeft').textContent = `${Math.ceil(leftMs() / 1000)}s`;
-    drawSnake();
-    const mine = you && you.snake && you.snake.turn === view.turn ? you.snake.d : '';
-    document.querySelectorAll('.pad button').forEach(b => {
-      b.setAttribute('aria-pressed', String(b.dataset.d === mine));
-      b.disabled = view.over;
-    });
-    const t = view.tally || {}, n = (t.U || 0) + (t.D || 0) + (t.L || 0) + (t.R || 0);
-    const names = { U: 'up', D: 'down', L: 'left', R: 'right' };
-    $('bars').innerHTML = '';
-    for (const d of ['U', 'D', 'L', 'R']) {
-      const row = document.createElement('div');
-      row.innerHTML = `<span>${names[d]}</span><i style="width:${n ? (100 * (t[d] || 0)) / n : 0}%"></i><b>${t[d] || 0}</b>`;
-      $('bars').append(row);
-    }
-  },
-};
-
-function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
-
-// ---- pixel commons ----
-
-const pxc = $('px').getContext('2d');
-let color = '1', pending = new Map(), sent = new Map(), showShown = false, painting = false, lastCell = null, inkWarned = false;
-const SENT_HOLD_MS = 5000;
-
-function inkNow() {
-  const y = you && !you.hill && !you.snipe && you.inkMax ? you : null;
-  if (!y) return { n: 0, max: 0, next: 0 };
-  const since = Date.now() - (you._at || Date.now());
-  let n = y.ink, next = y.nextMs - since;
-  while (next <= 0 && n < y.inkMax) { n++; next += y.everyMs || 4000; }
-  return { n: Math.max(0, n - pending.size), max: y.inkMax, next: Math.max(0, next) };
-}
-
-// What this phone shows for one cell: an unsent stroke, then a sent one the host has not echoed yet.
-function cellAt(i, now) {
-  if (pending.has(i)) return pending.get(i);
-  const s = sent.get(i);
-  if (s) {
-    if (view.cells[i] === s.c || now - s.at > SENT_HOLD_MS) sent.delete(i);
-    else return s.c;
-  }
-  return view.cells[i];
-}
-
-function drawPixels() {
-  const W = $('px').width, H = $('px').height, cw = W / PIX_C, ch = H / PIX_R, now = Date.now();
-  pxc.fillStyle = '#fff';
-  pxc.fillRect(0, 0, W, H);
-  for (let i = 0; i < PIX_C * PIX_R; i++) {
-    const c = showShown ? view.shown[i] : cellAt(i, now);
-    if (c === '0') continue;
-    pxc.fillStyle = c === '2' && !showShown ? '#d0021b' : '#000';
-    pxc.fillRect(Math.floor((i % PIX_C) * cw), Math.floor(Math.floor(i / PIX_C) * ch), Math.ceil(cw), Math.ceil(ch));
-  }
-  pxc.strokeStyle = 'rgba(0,0,0,.1)';
-  pxc.lineWidth = 1;
-  pxc.beginPath();
-  for (let x = 1; x < PIX_C; x++) { pxc.moveTo(Math.round(x * cw) + 0.5, 0); pxc.lineTo(Math.round(x * cw) + 0.5, H); }
-  for (let y = 1; y < PIX_R; y++) { pxc.moveTo(0, Math.round(y * ch) + 0.5); pxc.lineTo(W, Math.round(y * ch) + 0.5); }
-  pxc.stroke();
-}
-
-function cellOf(e) {
-  const r = $('px').getBoundingClientRect();
-  const x = Math.floor(((e.clientX - r.left) / r.width) * PIX_C), y = Math.floor(((e.clientY - r.top) / r.height) * PIX_R);
-  return [Math.max(0, Math.min(PIX_C - 1, x)), Math.max(0, Math.min(PIX_R - 1, y))];
-}
-
-function paintCell(x, y) {
-  const i = y * PIX_C + x;
-  if (cellAt(i, Date.now()) === color) return true;
-  if (inkNow().n <= 0) {
-    if (!inkWarned) { inkWarned = true; note('out of ink. it refills by itself, one every couple of seconds.', true); }
-    return false;
-  }
-  pending.set(i, color);
-  return true;
-}
-
-// A finger moves several cells between two events, so every cell on the line between them gets paint.
-function paintTo(e) {
-  if (!view || view.kind !== 'pixel' || showShown) return;
-  const [x1, y1] = cellOf(e);
-  let [x0, y0] = lastCell || [x1, y1];
-  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  for (;;) {
-    if (!paintCell(x0, y0)) break;
-    if (x0 === x1 && y0 === y1) break;
-    const e2 = 2 * err;
-    if (e2 >= dy) { err += dy; x0 += sx; }
-    if (e2 <= dx) { err += dx; y0 += sy; }
-  }
-  lastCell = [x1, y1];
-  drawPixels();
-}
-
-$('px').addEventListener('pointerdown', e => {
-  e.preventDefault();
-  painting = true;
-  lastCell = null;
-  inkWarned = false;
-  $('px').setPointerCapture(e.pointerId);
-  paintTo(e);
-});
-$('px').addEventListener('pointermove', e => {
-  if (!painting) return;
-  const batch = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
-  for (const ev of batch.length ? batch : [e]) paintTo(ev);
-});
-const endStroke = () => { painting = false; lastCell = null; flushPaint(); };
-$('px').addEventListener('pointerup', endStroke);
-$('px').addEventListener('pointercancel', endStroke);
-
-function flushPaint() {
-  if (!pending.size) return;
-  const p = [...pending].map(([i, c]) => [i % PIX_C, Math.floor(i / PIX_C), Number(c)]);
-  if (send('paint', { p })) {
-    const now = Date.now();
-    for (const [i, c] of pending) sent.set(i, { c, at: now });
-    if (you) you.ink = Math.max(0, you.ink - pending.size);
-  }
-  pending.clear();
-  drawPixels();
-}
-// Strokes go out while the finger is still down, so other phones and the badge see them sooner.
-setInterval(() => { if (painting) flushPaint(); }, 250);
-
-document.querySelectorAll('.palette button').forEach(b => b.addEventListener('click', () => {
-  color = b.dataset.c;
-  document.querySelectorAll('.palette button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-}));
-$('pxShown').addEventListener('click', () => {
-  showShown = !showShown;
-  $('pxShown').setAttribute('aria-pressed', String(showShown));
-  $('pxShown').textContent = showShown ? 'back to the live canvas' : 'show what the badge shows';
-  drawPixels();
-});
-
-// ---- the hill ----
-
-$('hillSend').addEventListener('click', () => {
-  const a = $('hillA').value.trim();
-  if (a.length < 2) { note('write a few words first.', true); return; }
-  if (send('answer', { a })) { note(''); $('hillSent').textContent = 'sending.'; }
-});
-function vote(w) {
-  const h = you && you.hill;
-  if (!h || h.i < 0) return;
-  if (send('vote', { r: view.round, i: h.i, w })) {
-    $('voteH').disabled = $('voteC').disabled = true;
-    $('votesLeft').textContent = 'counted. next matchup coming.';
-  }
-}
-$('voteH').addEventListener('click', () => vote('h'));
-$('voteC').addEventListener('click', () => vote('c'));
-
-// ---- flash snipe ----
-
-function claim(c) {
-  if (send('claim', { c })) { $('snipeResult').textContent = `claiming ${c}.`; $('code').value = ''; }
-}
-$('snipeForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const c = $('code').value.trim().toUpperCase();
-  if (c.length !== 4) { note('the code is 4 letters.', true); return; }
-  claim(c);
-});
-
-// ---- snake ----
-
-const snc = $('sn').getContext('2d');
-function drawSnake() {
-  const cw = $('sn').width / SNAKE_C, ch = $('sn').height / SNAKE_R;
-  snc.fillStyle = '#fff';
-  snc.fillRect(0, 0, $('sn').width, $('sn').height);
-  snc.fillStyle = '#ccc';
-  for (let x = 0; x < SNAKE_C; x++) for (let y = 0; y < SNAKE_R; y++) snc.fillRect(x * cw + cw / 2 - 1, y * ch + ch / 2 - 1, 2, 2);
-  (view.snake || []).forEach(([x, y], i) => {
-    snc.fillStyle = '#000';
-    snc.fillRect(x * cw + 2, y * ch + 2, cw - 4, ch - 4);
-    if (i === 0) { snc.fillStyle = '#fff'; snc.fillRect(x * cw + cw / 3, y * ch + ch / 3, cw / 3, ch / 3); }
+function renderMe() {
+  const s = board && board.s ? board.s : {}, mine = s[pid] || 0, all = Object.values(s);
+  $('score').textContent = mine;
+  $('pts').textContent = mine === 1 ? 'point' : 'points';
+  $('rank').textContent = mine ? `${1 + all.filter(x => x > mine).length} of ${all.length}` : 'not ranked yet';
+  const rows = ((view && view.top) || []).map(([n, sc]) => {
+    const li = document.createElement('li');
+    li.className = n === name ? 'mine' : '';
+    li.append(Object.assign(document.createElement('span'), { textContent: n }), Object.assign(document.createElement('b'), { textContent: sc }));
+    return li;
   });
-  if (view.food) {
-    snc.fillStyle = '#d0021b';
-    snc.beginPath();
-    snc.arc(view.food[0] * cw + cw / 2, view.food[1] * ch + ch / 2, Math.min(cw, ch) / 2 - 4, 0, Math.PI * 2);
-    snc.fill();
-  }
+  $('top').replaceChildren(...rows);
+  if (!rows.length) $('top').innerHTML = '<li><span>nobody has scored yet.</span></li>';
+  $('me-name').textContent = name;
 }
-document.querySelectorAll('.pad button').forEach(b => b.addEventListener('click', () => {
-  if (!view || view.over) return;
-  if (send('dir', { turn: view.turn, d: b.dataset.d })) {
-    you = { ...(you || {}), e: view.epoch, snake: { turn: view.turn, d: b.dataset.d } };
-    render();
+
+// ---- capsule credits ----
+
+let creditToken = '';
+
+async function onCredit(c) {
+  if (creditToken) return;
+  if (!c.sealed || !hostKey) { showCredit('', c); return; }
+  try {
+    const token = seal.td.decode(await seal.open(keys, hostKey, c.sealed));
+    if (/^[0-9a-f]{24}$/.test(token)) showCredit(token, c);
+  } catch (e) { showCredit('', c); }
+}
+
+function showCredit(token, c) {
+  creditToken = token;
+  const hidden = store.get(`credit.hidden.${room}`);
+  $('credit').hidden = !!hidden;
+  $('creditMini').hidden = !hidden;
+  $('creditWhy').textContent = `you ${c.why}. it is good for one capsule from the machine next to the badge.`;
+  const nfc = !!token && credit.canWriteCoin();
+  $('creditNfc').hidden = !nfc;
+  $('creditCode').textContent = c.code;
+  $('creditCodeHint').textContent = nfc ? 'no coin handy? show this code to the person wearing the badge instead.'
+    : 'this browser cannot write to a coin. show this code to the person wearing the badge and they will hand you one.';
+  if (store.get(`credit.used.${room}`)) $('creditStatus').textContent = 'loaded onto a coin. tap the coin on the capsule machine.';
+}
+
+$('creditHide').addEventListener('click', () => { store.set(`credit.hidden.${room}`, '1'); $('credit').hidden = true; $('creditMini').hidden = false; });
+$('creditMini').addEventListener('click', () => { store.set(`credit.hidden.${room}`, ''); $('credit').hidden = false; $('creditMini').hidden = true; });
+
+$('creditWrite').addEventListener('click', async () => {
+  if (!creditToken) return;
+  const ctl = new AbortController();
+  $('creditStatus').textContent = 'hold a blank coin to the back of your phone now.';
+  $('creditWrite').disabled = true;
+  const timeout = setTimeout(() => ctl.abort(), 30_000);
+  try {
+    await credit.writeCoin(creditToken, ctl.signal);
+    store.set(`credit.used.${room}`, '1');
+    $('creditStatus').textContent = 'coin loaded. tap it on the capsule machine for your capsule.';
+  } catch (e) {
+    $('creditStatus').textContent = e.name === 'AbortError' ? 'no coin found in 30 s. press the button and try again.' : `could not write the coin. ${e.message || 'try again.'}`;
   }
-}));
+  clearTimeout(timeout);
+  $('creditWrite').disabled = false;
+});
 
 // ---- start ----
 
-function start() {
-  P = `/hb/play/${roomCode}`;
+async function start() {
+  p = paths(room);
   $('joinView').hidden = true;
   $('noRoom').hidden = true;
   $('game').hidden = false;
   startedAt = Date.now();
-  relay = new Relay(`hack.build player`);
-  relay.onUp = () => { relay.set(`${P}/who/${pid}`, name); beat(); status(); };
+  keys = await seal.keypair('hb.play.keys');
+  relay = new Relay('hack.build player');
+  relay.onUp = () => { sayWho(); beat(); status(); };
   relay.onDown = status;
-  relay.on(`${P}/view`, onView);
-  relay.on(`${P}/board`, onBoard);
-  relay.on(`${P}/you/${pid}`, v => { onYou(v); if (you) you._at = Date.now(); render(); });
-  relay.on(`${P}/hb`, () => { hostAt = Date.now(); status(); });
+  relay.on(p.hostKey, v => { try { hostKey = JSON.parse(v); } catch (e) { /* not a key */ } });
+  relay.on(p.view, onView);
+  relay.on(p.board, v => { try { board = JSON.parse(v); } catch (e) { return; } renderMe(); });
+  relay.on(p.you(pid), onYou);
+  relay.on(p.hb, () => { hostAt = Date.now(); status(); });
+  relay.on(p.live, v => {
+    const s = String(v), bar = s.indexOf('|');
+    if (!view || s.slice(0, bar) !== view.epoch) return;
+    for (const cb of liveSubs) cb(s.slice(bar + 1));
+  });
   relay.start();
   setInterval(beat, 10_000);
-  setInterval(() => { status(); if (view && ['hill', 'snipe', 'snake'].includes(view.kind)) RENDER[view.kind](); else if (view && view.kind === 'pixel') RENDER.pixel(); }, 500);
+  setInterval(status, 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') beat(); });
+  renderMe();
 }
 
 $('joinForm').addEventListener('submit', e => {
   e.preventDefault();
   const n = $('name').value.trim().replace(/\s+/g, ' ');
   if (n.length < 2) { $('joinMsg').textContent = 'pick a name with at least 2 letters.'; return; }
+  const first = !relay;
   name = n.slice(0, 16).toLowerCase();
   store.set('name', name);
-  start();
+  if (first) start(); else { $('joinView').hidden = true; $('game').hidden = false; sayWho(); renderMe(); }
 });
+$('rename').addEventListener('click', () => { $('name').value = name; $('game').hidden = true; $('joinView').hidden = false; $('name').focus(); });
 $('roomForm').addEventListener('submit', e => {
   e.preventDefault();
   location.hash = $('roomIn').value.trim().toUpperCase();
   location.reload();
 });
-addEventListener('hashchange', () => {
-  const was = roomCode;
-  parseHash();
-  if (roomCode !== was) location.reload();
-  else if (view && view.kind === 'snipe') RENDER.snipe();
-});
+addEventListener('hashchange', () => { const was = room; parseHash(); if (room !== was) location.reload(); else render(); });
 
 parseHash();
-if (!roomCode) $('noRoom').hidden = false;
+if (!room) $('noRoom').hidden = false;
 else if (!name) { $('joinView').hidden = false; $('name').focus(); }
 else start();
 </script>

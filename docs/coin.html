@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Capsule Credit</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/ui.css">
+<style>
+main{max-width:520px;margin:0 auto;padding:var(--s6) var(--s4);display:grid;gap:var(--s4)}
+h1{font-size:44px;line-height:1.05}
+</style>
+</head>
+<body>
+<main>
+  <h1>this coin holds a capsule credit</h1>
+  <p class="prose">someone won it playing crowd games on a hack.build badge. tap the coin on the reader of the capsule machine and it drops one capsule. each credit works once.</p>
+  <p class="prose" id="state"></p>
+  <a class="btn go" href="https://instagram.com/hack.build/">see what hack.build makes</a>
+</main>
+<script>
+// The credit is checked by the machine, which holds the key. This page only says what the coin is.
+document.getElementById('state').textContent = /^#[0-9a-f]{24}$/.test(location.hash) ? '' : 'this link does not carry a credit, so the machine will not take it.';
+</script>
+</body>
+</html>
