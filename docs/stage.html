@@ -22,15 +22,19 @@ aside{display:grid;grid-template-rows:auto auto auto 1fr;gap:1.4vw;min-height:0}
 #count{font:clamp(18px,1.4vw,26px) var(--mono)}
 ol{margin:0;padding:0;list-style:none;font:clamp(14px,1.3vw,24px)/1.5 var(--mono);overflow:hidden}
 #off{position:fixed;left:2vw;bottom:2vw;font:600 14px var(--mono);color:#ff8a80}
+#screenBox{position:relative}
+#gif{position:absolute;max-width:100%;max-height:100%;aspect-ratio:960/672;object-fit:contain;background:#fff;box-shadow:.6vw .6vw 0 var(--pink)}
+#how{font:clamp(14px,1.2vw,22px)/1.35 var(--type);color:#cfc8ba;margin:0}
+#timer{font:clamp(40px,5vw,96px)/1 var(--inst);color:var(--pink)}
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="screenBox"><canvas id="screen" width="960" height="672" aria-label="the game, as the badge shows it"></canvas></div>
+  <div id="screenBox"><canvas id="screen" width="960" height="672" aria-label="the game, as the badge shows it"></canvas><img id="gif" alt="" hidden></div>
   <aside>
     <canvas id="qr" width="400" height="400" aria-label="qr code to join"></canvas>
     <div><div id="room">----</div><div id="url"></div></div>
-    <div><h1 id="game">waiting for a game</h1><div id="count"></div></div>
+    <div><h1 id="game">waiting for a game</h1><p id="how"></p><div id="timer"></div><div id="count"></div></div>
     <ol id="top"></ol>
   </aside>
 </div>
@@ -48,7 +52,7 @@ const p = paths(room);
 const c = $('screen').getContext('2d');
 const ink = Object.assign(document.createElement('canvas'), { width: S.W, height: S.H });
 const ic = ink.getContext('2d');
-let stage = null, screen = null, kind = '', tick = 0, inkFresh = true, epoch = '';
+let stage = null, screen = null, kind = '', tick = 0, inkFresh = true, epoch = '', view = null, viewAt = 0;
 
 function showJoin(url) {
   $('room').textContent = room;
@@ -80,6 +84,10 @@ async function onStage(value) {
     ic.fillRect(0, 0, S.W, S.H);
   }
   $('game').textContent = kind ? gameMeta(kind).name : 'waiting for a game';
+  $('how').textContent = kind ? gameMeta(kind).howto : 'scan the code with your phone camera to join.';
+  const url = screen && screen.overlay ? screen.overlay(stage.model) : '';
+  $('gif').hidden = !url;
+  if (url && $('gif').getAttribute('src') !== url) $('gif').src = url;
   $('count').textContent = `${stage.players} phone${stage.players === 1 ? '' : 's'} playing`;
   $('top').replaceChildren(...(stage.top || []).map(([n, s], i) => Object.assign(document.createElement('li'), { textContent: `${i + 1}. ${n}, ${s}` })));
   if (stage.join) showJoin(stage.join.url);
@@ -92,7 +100,7 @@ const relay = new Relay('hack.build stage');
 relay.onUp = () => { $('off').hidden = true; };
 relay.onDown = () => { $('off').hidden = false; };
 relay.on(p.stage, onStage);
-relay.on(p.view, v => { try { epoch = JSON.parse(v).epoch; } catch (e) { /* not a view */ } });
+relay.on(p.view, v => { try { view = JSON.parse(v); viewAt = Date.now(); epoch = view.epoch; } catch (e) { /* not a view */ } });
 relay.on(p.live, v => {
   if (!screen || !screen.live) return;
   const s = String(v), bar = s.indexOf('|');
@@ -108,7 +116,12 @@ relay.on(p.media('ink'), url => {
   img.src = String(url);
 });
 relay.start();
-setInterval(() => { tick++; if (kind === 'cinema') draw(); }, 250);
+setInterval(() => {
+  tick++;
+  if (kind === 'cinema') draw();
+  const left = view && view.left != null && view.kind === kind ? Math.max(0, view.left - (Date.now() - viewAt)) : 0;
+  $('timer').textContent = left ? `${Math.ceil(left / 1000)}s` : '';
+}, 250);
 draw();
 </script>
 </body>

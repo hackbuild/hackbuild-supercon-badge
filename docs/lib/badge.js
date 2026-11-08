@@ -2,7 +2,11 @@
 // and a signed live ink stream. The key never leaves this browser. It names the path and signs
 // each message.
 
-const CHUNK = 9000;
+// 16000 raw bytes is about 21 KB of base64 per message, well under the relay's 64 KB limit, and
+// three chunks travel at once. The badge acks chunks in order and ignores any out of order.
+const CHUNK = 16000;
+const WINDOW = 3;
+const STALL_MS = 4000;
 const te = new TextEncoder();
 export const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 
@@ -44,6 +48,8 @@ export class Badge {
     this.inkSeq = 0;
     this.onState = () => {};
     this.onOnline = () => {};
+    this.onPress = () => {};
+    this.acked = new Map();
   }
 
   async open(secret) {
@@ -76,8 +82,12 @@ export class Badge {
       if (this.states >= 2 && !this.online) { this.online = true; this.onOnline(); }
       this.nonceWaiters.splice(0).forEach(f => f());
       this.onState();
-    } else if (address === `${this.base}/ack` && this.ackWaiter) {
-      this.ackWaiter(String(value));
+    } else if (address === `${this.base}/ack`) {
+      const [id, n] = String(value).split(':');
+      this.acked.set(id, Math.max(this.acked.has(id) ? this.acked.get(id) : -2, Number(n)));
+      if (this.ackWaiter) this.ackWaiter();
+    } else if (address === `${this.base}/press` && (value === 'a' || value === 'b')) {
+      this.onPress(value);
     }
   }
 
@@ -112,31 +122,46 @@ export class Badge {
 
   play(mode, extra = {}) { return this.command('play', { mode, ...extra }); }
 
-  _waitAck(want) {
-    return new Promise((resolve, reject) => {
-      const t = setTimeout(() => { this.ackWaiter = null; reject(new Error('the badge stopped answering during the send.')); }, 20000);
-      this.ackWaiter = got => { if (got === want) { clearTimeout(t); this.ackWaiter = null; resolve(); } };
+  // Resolves when the badge has acked chunk n or later, or after ms with false.
+  _waitAcked(id, n, ms) {
+    return new Promise(resolve => {
+      const done = () => (this.acked.get(id) ?? -2) >= n;
+      if (done()) { resolve(true); return; }
+      const t = setTimeout(() => { this.ackWaiter = null; resolve(false); }, ms);
+      this.ackWaiter = () => { if (done()) { clearTimeout(t); this.ackWaiter = null; resolve(true); } };
     });
   }
 
+  // Sends a file in chunks, a few at a time. When the acks stall, it goes back to the first chunk
+  // the badge has not acked and sends from there, so a dropped message costs one pause.
   async _transfer(cmd, bytes, extra) {
     const sha = hex(await crypto.subtle.digest('SHA-256', bytes));
     const id = Math.random().toString(36).slice(2, 8);
-    const started = this._waitAck(`${id}:-1`);
+    const total = Math.ceil(bytes.length / CHUNK);
     await this.command(cmd, { id, size: bytes.length, sha, ...extra });
-    await started;
-    for (let i = 0, n = Math.ceil(bytes.length / CHUNK); i < n; i++) {
-      const acked = this._waitAck(`${id}:${i}`);
-      this.relay.emit(`${this.base}/chunk`, `${id}:${i}:${b64(bytes.subarray(i * CHUNK, (i + 1) * CHUNK))}`);
-      await acked;
+    if (!await this._waitAcked(id, -1, 10000)) throw new Error('the badge did not start the transfer.');
+    let sent = 0, stalls = 0;
+    const send = i => this.relay.emit(`${this.base}/chunk`, `${id}:${i}:${b64(bytes.subarray(i * CHUNK, (i + 1) * CHUNK))}`);
+    while ((this.acked.get(id) ?? -2) < total - 1) {
+      const acked = this.acked.get(id) ?? -1;
+      if (sent <= acked) sent = acked + 1;
+      while (sent < total && sent - acked <= WINDOW) send(sent++);
+      if (await this._waitAcked(id, acked + 1, STALL_MS)) { stalls = 0; continue; }
+      if (++stalls > 4) throw new Error('the badge stopped answering during the send.');
+      sent = (this.acked.get(id) ?? -1) + 1;
     }
+    this.acked.delete(id);
   }
 
   // A compressed screen. Resolves once every chunk is acked, before the panel has drawn it.
   // to: 'play' sends it to the games app, then: 'ink' makes it the page live ink draws on.
   sendScreen(z, { color = false, to = '', then = '' } = {}) { return this._transfer('img', z, { color, to, then }); }
 
-  sendReel(blob) { return this._transfer('reel', blob, {}); }
+  // loops 0 plays the reel until something else is sent.
+  sendReel(blob, { loops = 2 } = {}) { return this._transfer('reel', blob, { loops }); }
+
+  // Drains the badge's LED bar over ms, for a game phase. Fire and forget.
+  lights(ms, color = [0, 0, 6]) { return this.command('lights', { ms, c: color }).catch(() => {}); }
 
   // One live ink batch. Numbered rather than nonced, so a stream never waits a round trip.
   async ink(strokes) {

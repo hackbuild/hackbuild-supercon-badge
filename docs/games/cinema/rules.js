@@ -126,6 +126,8 @@ export default {
     { label: 'replay the last premiere', run: ctx => { const s = ctx.state; if (s.premiere) { s.queue.unshift({ ...s.premiere, id: s.premiere.id + 0.5 }); s.premiereAt = 0; } } },
   ],
 
+  headline(ctx) { const s = ctx.state, drawn = s.open.reduce((n, r) => n + r.frames.filter(Boolean).length, 0); return { big: `${drawn} frames drawing`, small: s.premiere ? `last premiere: ${s.premiere.prompt}` : 'no premiere yet' }; },
+
   stats(ctx) {
     const s = ctx.state;
     return [['reels drawing', s.open.length], ['frames drawn', s.open.reduce((n, r) => n + r.frames.filter(Boolean).length, 0)],

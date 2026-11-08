@@ -65,6 +65,7 @@ export default {
 
   badge: {
     mode: 'still',
+    countdown: ctx => { const s = ctx.state; return { key: `${s.round}.${s.live}`, ms: s.live ? s.until - ctx.now : 0 }; },
     key: ctx => `${ctx.epoch}.${ctx.state.round}`,
     model: ctx => { const s = ctx.state; return { round: s.round, code: s.code, live: s.live, best: s.best, claims: s.claims.length }; },
     shown(ctx, key) { const s = ctx.state; if (key === `${ctx.epoch}.${s.round}` && !s.live) goLive(ctx, s); },
@@ -73,6 +74,8 @@ export default {
   controls: () => [
     { label: 'next code now', run: ctx => next(ctx, ctx.state) },
   ],
+
+  headline(ctx) { const s = ctx.state; return { big: s.live ? `${s.code}, ${Math.max(0, Math.ceil((s.until - ctx.now) / 1000))}s` : 'waiting for the badge', small: `round ${s.round}, ${s.claims.length} claims` }; },
 
   stats(ctx) {
     const s = ctx.state, left = Math.max(0, Math.ceil((s.until - ctx.now) / 1000));

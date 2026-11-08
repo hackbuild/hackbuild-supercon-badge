@@ -18,12 +18,12 @@ const DEFAULTS = Object.fromEntries((await import('../../docs/games/registry.js'
 
 // A small stand-in for the host engine's context.
 function room(id, rules, players, cfg = {}) {
-  const r = { now: 1_000_000, scores: {}, names: {}, wins: [], media: {}, cleared: [], state: null, seq: 0 };
+  const r = { now: 1_000_000, scores: {}, names: {}, wins: [], media: {}, cleared: [], jobs: [], state: null, seq: 0 };
   players.forEach((p, i) => { r.names[p] = `p${i}`; });
   r.ctx = () => ({
     now: r.now, epoch: 'EPOCH1', state: r.state, cfg: { ...DEFAULTS[id], ...cfg }, active: players, name: p => r.names[p] || 'someone',
     award: (p, n) => { r.scores[p] = (r.scores[p] || 0) + n; }, win: (p, why) => r.wins.push([p, why]), you: () => {}, stream: () => {},
-    media: (k, v) => { r.media[k] = v; }, clearUpload: p => r.cleared.push(p),
+    media: (k, v) => { r.media[k] = v; }, clearUpload: p => r.cleared.push(p), job: fn => r.jobs.push(fn),
   });
   r.state = rules.init(r.ctx());
   r.input = (pid, t, msg) => rules.input[t](r.ctx(), pid, msg);
@@ -219,4 +219,25 @@ test('booth: uploads wait for approval, votes pick the reign, and photos are del
   r.wait(DEFAULTS.booth.reignS * 1000 + 1);
   assert.equal(r.media[`booth.${bId}`], '', 'deleted after its reign');
   assert.ok(r.cleared.includes(b));
+});
+
+test('gifs: phones ask from the presets with a cooldown, the queue plays in order, and a GIF loops', async () => {
+  const gifs = await load('gifs');
+  const [a, b] = ids(2);
+  const r = room('gifs', gifs, [a, b]);
+  assert.equal(r.input(a, 'request', { id: 'not-a-preset' }), null);
+  assert.ok(r.input(a, 'request', { id: 'you-dont-say' }).changed);
+  assert.match(r.input(a, 'request', { id: 'hackerman' }).note, /30 s/);
+  assert.match(r.input(b, 'request', { id: 'you-dont-say' }).note, /already/);
+  r.tick();
+  assert.equal(r.jobs.length, 1, 'the first request starts decoding');
+  assert.equal(r.state.loading, 'you don\'t say');
+  // Stand in for the decoder finishing.
+  r.state.loading = '';
+  r.state.now = { id: 1, title: 'you don\'t say', url: 'x', by: 'p0', frames: ['AA', 'BB'], w: 240, h: 168, at: r.now };
+  const reel = gifs.badge.reel(r.ctx());
+  assert.equal(reel.loops, 0, 'a gif loops until the next one');
+  assert.equal(gifs.badge.key(r.ctx()), reel.key, 'no still interrupts the loop');
+  const off = room('gifs', gifs, [a], { requests: false });
+  assert.match(off.input(a, 'request', { id: 'cage' }).note, /off/);
 });

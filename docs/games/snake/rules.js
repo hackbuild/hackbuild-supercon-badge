@@ -96,8 +96,11 @@ export default {
   },
 
   controls: () => [
+    { label: 'end this turn now', run: ctx => { ctx.state.until = 0; } },
     { label: 'restart the snake', run: ctx => { const s = ctx.state; s.over = true; s.overTurns = 1; s.until = 0; } },
   ],
+
+  headline(ctx) { const s = ctx.state; return { big: s.over ? 'game over' : `score ${s.score}, turn ${s.turn}`, small: `best ${s.best}, ${Object.values(s.tally).reduce((a, b) => a + b, 0)} votes this turn` }; },
 
   stats(ctx) {
     const s = ctx.state, left = Math.max(0, Math.ceil((s.until - ctx.now) / 1000));

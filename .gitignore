@@ -5,3 +5,4 @@ __pycache__/
 .hbf/
 node_modules/
 tools/parts/.cache/
+tools/loadtest/emu-out/

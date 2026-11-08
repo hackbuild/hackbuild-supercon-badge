@@ -142,6 +142,7 @@ export default {
 
   badge: {
     mode: 'still',
+    countdown: ctx => { const s = ctx.state; return s.phase === 'show' ? { key: `${s.round}.show`, ms: 0 } : { key: `${s.round}.${s.phase}.${s.until}`, ms: s.until - ctx.now }; },
     key: ctx => { const s = ctx.state; return `${s.round}.${s.phase}.${s.hidden}.${s.at}`; },
     model(ctx) {
       const s = ctx.state;
@@ -154,6 +155,8 @@ export default {
     { label: 'skip this prompt', run: ctx => { const s = ctx.state; s.at++; begin(ctx, s); } },
     { label: 'take the winner off the badge', run: ctx => { ctx.state.hidden = true; } },
   ],
+
+  headline(ctx) { const s = ctx.state; return { big: `round ${s.round}, ${s.phase === 'show' ? 'the winner' : s.phase}, ${Math.max(0, Math.ceil((s.until - ctx.now) / 1000))}s`, small: s.phase === 'show' && s.winner ? `${s.winner.text}, by ${s.winner.name}` : prompt(s) }; },
 
   stats(ctx) {
     const s = ctx.state, left = Math.max(0, Math.ceil((s.until - ctx.now) / 1000));

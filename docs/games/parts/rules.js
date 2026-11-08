@@ -148,6 +148,7 @@ export default {
 
   badge: {
     mode: 'still',
+    countdown: ctx => { const s = ctx.state; return { key: `${s.round}.${s.phase}.${s.until}`, ms: s.phase === 'ask' ? s.until - ctx.now : 0 }; },
     key: ctx => `${ctx.state.round}.${ctx.state.phase}`,
     model(ctx) {
       const s = ctx.state, p = part(s);
@@ -162,6 +163,8 @@ export default {
     { label: 'reveal now', run: ctx => { if (ctx.state.phase === 'ask') ctx.state.until = 0; } },
     { label: 'skip to the next part', run: ctx => { const s = ctx.state; s.round++; ask(ctx, s); } },
   ],
+
+  headline(ctx) { const s = ctx.state, p = part(s); return { big: `round ${s.round}, ${s.phase}, ${Math.max(0, Math.ceil((s.until - ctx.now) / 1000))}s`, small: p ? `answer: ${p.answer}. ${s.firsts.length} named it.` : '' }; },
 
   stats(ctx) {
     const s = ctx.state, p = part(s), left = Math.max(0, Math.ceil((s.until - ctx.now) / 1000));

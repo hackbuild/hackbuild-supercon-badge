@@ -81,6 +81,8 @@ export default {
     { label: 'wipe the canvas', run: ctx => { ctx.state.cells = '0'.repeat(COLS * ROWS); } },
   ],
 
+  headline(ctx) { const s = ctx.state; return { big: PROMPTS[s.prompt], small: `${Object.keys(s.painters).length} painted` }; },
+
   stats(ctx) {
     const s = ctx.state;
     return [['prompt', PROMPTS[s.prompt]], ['painters', Object.keys(s.painters).length], ['pixels set', (s.cells.match(/[12]/g) || []).length]];

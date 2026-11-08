@@ -151,6 +151,8 @@ export default {
     { label: 'new page', run: ctx => newPage(ctx) },
   ],
 
+  headline(ctx) { const s = ctx.state; return { big: `page ${s.page}, ${s.coverage}% covered`, small: `${Object.keys(s.painters).length} drawing. ${s.prompt}.` }; },
+
   stats(ctx) {
     const s = ctx.state;
     return [['page', s.page], ['prompt', s.prompt], ['covered', `${s.coverage}%, new page at ${ctx.cfg.fullAt}%`], ['painters', Object.keys(s.painters).length]];

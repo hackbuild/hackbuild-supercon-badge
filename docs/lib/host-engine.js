@@ -37,8 +37,9 @@ export class HostEngine {
     this.dirty = { view: true, board: true, save: false, stage: true };
     this.last = { view: 0, board: 0, beat: 0, stage: 0, live: 0, ui: 0 };
     this.liveQueue = [];
+    this.jobs = 0;
     this.pending = new Map();
-    this.pipe = { busy: false, key: '', at: 0, retryAt: 0, inkMode: false };
+    this.pipe = { busy: false, key: '', at: 0, retryAt: 0, inkMode: false, gen: 0 };
     this.frame = document.createElement('canvas');
     this.frame.width = S.W;
     this.frame.height = S.H;
@@ -76,6 +77,7 @@ export class HostEngine {
       this.changed();
     };
     this.badge.onOnline = () => this.badgeBack();
+    this.badge.onPress = b => this.press(b);
     this.relay.on(this.p.owner, v => this.onOwner(v));
     this.relay.on(this.p.inputs, (v, a) => this.onInput(v, a));
     this.relay.on(this.p.whos, (v, a) => this.onWho(v, a));
@@ -160,6 +162,13 @@ export class HostEngine {
       media: (id, data) => this.relay.set(this.p.media(id), data || ''),
       clearUpload: pid => this.relay.set(this.p.upload(pid), ''),
       opened: pid => this.pending.get(pid),
+      // Slow work a game needs, like decoding a GIF. The view updates when it finishes.
+      job: fn => {
+        this.jobs++;
+        this.changed();
+        Promise.resolve().then(() => fn(this.ctx(Date.now()))).catch(e => this.tell(`${e.message}`, true))
+          .finally(() => { this.jobs--; this.dirty.view = this.dirty.stage = this.dirty.save = true; this.changed(); });
+      },
     };
   }
 
@@ -326,42 +335,52 @@ export class HostEngine {
       // so a badge that rebooted or was taken over from its menu comes back with every stroke.
       const key = b.key(ctx);
       if (pipe.inkMode && pipe.key === key && this.badge.app === 'play') return;
-      return this.run(async () => {
+      return this.run(async live => {
         const c = this.frame.getContext('2d');
         S.clear(c, S.palette(false));
         b.snapshot(ctx, c);
         await this.badge.sendScreen(await zlib(S.toPlanes(c)), { to: 'play', then: 'ink' });
+        if (!live()) return;
         pipe.inkMode = true;
         pipe.key = key;
         this.tell('the badge is in live ink. strokes show in about a second.');
       });
     }
     pipe.inkMode = false;
-    if (this.badge.busy) return;
+    this.lights(ctx);
+    // An endless reel reads busy forever, and a reel left from the last game is stale: both may be
+    // interrupted. Anything else the badge is drawing is waited for.
+    const st = this.badge.state || {};
+    const stale = st.play === 'reel' && pipe.reelOf !== pipe.gen;
+    if (this.badge.busy && !st.loop && !stale) return;
     // While a game runs the badge belongs to it; a badge moved off Play from its menu gets the game back.
     if (this.badge.app && this.badge.app !== 'play') pipe.key = '';
     const reel = b.reel && b.reel(ctx);
     if (reel && reel.key !== pipe.reelKey) {
-      return this.run(async () => {
+      return this.run(async live => {
         const frames = [];
         for (const model of reel.frames) frames.push(await zlib(this.render(model)));
         this.tell(`sending a ${frames.length} frame reel to the badge.`);
-        await this.badge.sendReel(reelBlob(frames));
+        await this.badge.sendReel(reelBlob(frames), { loops: reel.loops ?? 2 });
+        if (!live()) return;
         pipe.reelKey = reel.key;
+        pipe.reelOf = pipe.gen;
         pipe.key = reel.key;
         pipe.at = Date.now();
-        await this.badge.waitDrawn(90_000);
+        if (reel.loops !== 0) await this.badge.waitDrawn(90_000);
+        if (live()) this.tell(reel.loops === 0 ? 'the badge is looping it.' : 'the reel played on the badge.');
       });
     }
     const key = b.key(ctx);
     const gap = b.gapMs ? b.gapMs(ctx) : 0;
     if (key === pipe.key || now - pipe.at < gap) return;
-    return this.run(async () => {
+    return this.run(async live => {
       const model = b.model(ctx);
       const z = await zlib(this.render(model));
       this.tell(`sending ${(z.length / 1024).toFixed(1)} kb to the badge.`);
       await this.badge.sendScreen(z, { to: 'play' });
       await this.badge.waitDrawn();
+      if (!live()) return;
       pipe.key = key;
       pipe.at = Date.now();
       if (b.shown) b.shown(this.ctx(Date.now()), key);
@@ -371,14 +390,28 @@ export class HostEngine {
     });
   }
 
+  // One badge send at a time. A send belongs to the game that started it: switching games drops
+  // it, so a long reel from the last game never holds up the first screen of the next.
   async run(job) {
+    const gen = this.pipe.gen;
+    const live = () => gen === this.pipe.gen;
     this.pipe.busy = true;
-    try { await job(); } catch (e) {
-      this.pipe.retryAt = Date.now() + 5000;
-      this.tell(`badge send failed. ${e.message} trying again in 5 s.`, true);
+    try { await job(live); } catch (e) {
+      if (live()) {
+        this.pipe.retryAt = Date.now() + 5000;
+        this.tell(`badge send failed. ${e.message} trying again in 5 s.`, true);
+      }
     }
-    this.pipe.busy = false;
+    if (live()) this.pipe.busy = false;
     this.changed();
+  }
+
+  resetPipe() {
+    this.pipe.gen++;
+    this.pipe.busy = false;
+    this.pipe.key = this.pipe.reelKey = this.pipe.lightKey = '';
+    this.pipe.inkMode = false;
+    this.pipe.retryAt = 0;
   }
 
   render(model) {
@@ -388,10 +421,30 @@ export class HostEngine {
     return S.toPlanes(c);
   }
 
+  // The LED bar drains over the current phase, sent once per phase.
+  lights(ctx) {
+    const b = this.rules.badge, cd = b.countdown && b.countdown(ctx);
+    if (!cd || cd.key === this.pipe.lightKey) return;
+    this.pipe.lightKey = cd.key;
+    this.badge.lights(Math.max(0, Math.round(cd.ms)));
+  }
+
+  // User A and user B on the badge run the game's first and second controls.
+  press(button) {
+    if (!this.owner || !this.rules || !this.rules.controls) return;
+    const ctx = this.ctx(Date.now());
+    const list = this.rules.controls(ctx), c = list[button === 'a' ? 0 : 1];
+    if (!c) return;
+    c.run(ctx);
+    this.dirty.view = this.dirty.stage = this.dirty.save = true;
+    this.tell(`badge button ${button}: ${c.label}.`);
+  }
+
   // A badge that was offline missed screens and strokes, so it gets the current state again.
   badgeBack() {
     this.pipe.key = '';
     this.pipe.reelKey = '';
+    this.pipe.lightKey = '';
     this.pipe.inkMode = false;
     this.changed();
   }
@@ -411,9 +464,7 @@ export class HostEngine {
     const ctx0 = { ...this.ctx(now), state: this.room.games[kind] };
     this.room.games[kind] = rules.init(ctx0);
     this.lastYou.clear();
-    this.pipe.key = this.pipe.reelKey = '';
-    this.pipe.inkMode = false;
-    this.pipe.retryAt = 0;
+    this.resetPipe();
     this.dirty.view = this.dirty.stage = this.dirty.save = true;
     if (this.badge.online && this.badge.state && this.badge.state.quality === 'color') this.badge.command('quality', 'fast').catch(() => {});
     this.tell(`starting ${rules.name}.`);
@@ -426,7 +477,8 @@ export class HostEngine {
     this.rules = null;
     this.room.epoch = proto.code(6);
     this.dirty.view = this.dirty.stage = this.dirty.save = true;
-    this.pipe.inkMode = false;
+    this.resetPipe();
+    this.badge.lights(0);
     this.tell('games stopped. the badge shows the join screen.');
     try { await this.badge.play('join'); } catch (e) { this.tell(`could not reach the badge. ${e.message}`, true); }
   }
@@ -461,6 +513,7 @@ export class HostEngine {
       stats: ctx && this.rules.stats ? this.rules.stats(ctx) : [],
       controls: ctx && this.rules.controls ? this.rules.controls(ctx).map(c => c.label) : [],
       panel: ctx && this.rules.panel ? this.rules.panel(ctx) : null,
+      headline: ctx && this.rules.headline ? this.rules.headline(ctx) : null,
     };
   }
 }

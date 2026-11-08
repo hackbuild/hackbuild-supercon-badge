@@ -15,7 +15,7 @@ import time
 
 import network
 
-from lib import hb_ink, hb_state
+from lib import hb_ink, hb_lights, hb_state
 from lib.board import reg_in_v_sns
 from lib.hb_clasp import Clasp
 from lib.led_bar import leds
@@ -118,6 +118,12 @@ class Link:
             return
         self.ink_sid, self.ink_seq = sid, seq
         hb_ink.apply(data)
+        hb_lights.pulse()
+
+    def press(self, button):
+        """A user button in the Play app, for the host to turn into a game control."""
+        self.send("/press", button)
+        hb_lights.pulse()
 
     def on_command(self, envelope):
         sig, _, body = envelope.partition(":")
@@ -173,6 +179,9 @@ class Link:
                     hb_ink.clear()
                 PlayApp._instance.set_mode(val.get("mode", "join"))
                 self.goto("play")
+        elif cmd == "lights":
+            # ms drains the LED bar over a game phase; 0 clears it.
+            hb_lights.countdown(int(val.get("ms", 0)), val.get("c") or (0, 0, 6))
         elif cmd in ("img", "reel"):
             size = int(val["size"])
             if size > CHUNK_LIMIT:
@@ -183,6 +192,7 @@ class Link:
             to = "reel" if cmd == "reel" else "play" if val.get("to") == "play" else "sent"
             self.transfer = {"id": val["id"], "size": size, "sha": val["sha"], "next": 0,
                              "color": bool(val.get("color")), "to": to, "then": val.get("then", ""),
+                             "loops": max(0, min(100, int(val.get("loops", 2)))),
                              "got": 0, "buf": bytearray(size)}
             self.send("/ack", val["id"] + ":-1")
 
@@ -216,11 +226,17 @@ class Link:
         if _hex(hashlib.sha256(t["buf"]).digest()) != t["sha"]:
             self.fail("image failed its checksum")
             return
-        color, to, then = t["color"], t["to"], t["then"]
+        color, to, then, loops = t["color"], t["to"], t["then"], t["loops"]
         from apps.d_play import FRAME_PATH, REEL_PATH, PlayApp
         path = {"reel": REEL_PATH, "play": FRAME_PATH}.get(to, hb_state.SENT_PATH)
-        with open(path, "wb") as f:
+        # Written beside the old file and swapped in, so a reel still playing never reads half a file.
+        with open(path + ".new", "wb") as f:
             f.write(t["buf"])
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        os.rename(path + ".new", path)
         del t
         gc.collect()
         hb_state.status["err"] = ""
@@ -230,7 +246,7 @@ class Link:
             self.goto("image")
             return
         # A frame followed by live ink becomes the page the crowd draws on.
-        PlayApp._instance.set_mode("reel" if to == "reel" else "inkframe" if then == "ink" else "frame")
+        PlayApp._instance.set_mode("reel" if to == "reel" else "inkframe" if then == "ink" else "frame", loops)
         self.goto("play")
 
     def send(self, suffix, text):
@@ -249,6 +265,7 @@ class Link:
             "quality": hb_state.config["quality"], "color": s["color"], "paused": s["paused"],
             "fast_ms": s["fast_ms"], "color_ms": s["color_ms"], "load_ms": s["load_ms"], "wifi": s["wifi"],
             "ip": s["ip"], "rssi": s["rssi"], "err": s["err"],
+            "play": s.get("play", ""), "loop": s.get("loop", False), "frame": s.get("frame", 0),
             "vin": round(reg_in_v_sns.read_uv() * 2 / 1000000, 2),
             "up": time.time() - self.started, "mem": gc.mem_free(),
         })
@@ -371,6 +388,9 @@ class Link:
 def start(switcher):
     """Opens the main app and starts the remote link. Called once from main.py."""
     link = Link(switcher)
+    from apps.d_play import PlayApp
+    if PlayApp._instance:
+        PlayApp._instance.on_press = link.press
     # The film state is unknown after a reset, so the first screen gets the full waveform.
     hb_state.want_color_once()
     link.goto("logo")

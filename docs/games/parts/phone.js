@@ -22,7 +22,7 @@ export function mount(root, api) {
   root.append(h('div.split', {}, head, timer), canvas, result, askBox, revealBox);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') guess(); });
 
-  let view = null, you = null, drawn = '';
+  let view = null, you = null, drawn = '', buzzed = false;
 
   function guess() {
     const text = input.value.trim();
@@ -53,6 +53,7 @@ export function mount(root, api) {
     const y = you && you.r === view.round ? you : null;
     askBox.hidden = view.phase !== 'ask' || !!(y && (y.ok || y.chose || y.tries >= y.triesMax));
     revealBox.hidden = view.phase !== 'reveal';
+    if (y && y.ok && !buzzed) { buzzed = true; api.buzz(); }
     if (y && y.ok) result.textContent = y.via === 'choice' ? `right, from the choices. +${y.pts}` : `right. ${ordinal(y.rank)} to name it, +${y.pts}`;
     else if (y && (y.chose || y.tries >= y.triesMax)) result.textContent = 'not this time. the answer shows soon.';
     else result.textContent = '';
@@ -73,7 +74,7 @@ export function mount(root, api) {
   t.every(500, () => { if (view) { timer.textContent = seconds(api.left(view)); if (view.phase === 'ask') draw(); } });
   return {
     update(v, y) {
-      if (view && v.round !== view.round) { input.value = ''; choices.replaceChildren(); }
+      if (view && v.round !== view.round) { input.value = ''; choices.replaceChildren(); buzzed = false; }
       view = v;
       you = y;
       draw();

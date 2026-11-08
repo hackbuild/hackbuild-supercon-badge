@@ -2,58 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
 <title>Crowd Games Host</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Permanent+Marker&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/ui.css">
 <script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.1/dist/index.global.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" crossorigin="anonymous"></script>
 <style>
-body{font-size:15px}
+body{font-size:15px;padding-bottom:env(safe-area-inset-bottom)}
 #gate{max-width:480px;margin:0 auto;padding:var(--s6) var(--s4)}
 #gate h1{font-size:40px;line-height:1.05;margin-bottom:var(--s2)}
 #gateMsg{min-height:44px;margin-top:var(--s3);color:var(--err);font-weight:600}
-#app{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,1fr);gap:var(--s5);max-width:1240px;margin:0 auto;padding:var(--s4);align-items:start}
-#left{position:sticky;top:var(--s4);min-width:0;display:grid;gap:var(--s4)}
-#right{min-width:0;display:grid;gap:var(--s5)}
-.top{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}
-.top h1{font-size:26px}
-.top nav{display:flex;gap:var(--s4);font-size:13px}
-.top nav a{min-height:var(--tap);display:inline-flex;align-items:center}
+
+/* top bar */
+#bar{position:sticky;top:0;z-index:5;background:var(--ink);color:var(--raised);padding:var(--s2) var(--s4);padding-top:calc(var(--s2) + env(safe-area-inset-top));display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+#bar h1{font-size:20px;margin-right:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--mono);color:#cfc8ba}
+.chip i{width:9px;height:9px;border-radius:50%;background:#6b6459;display:inline-block}
+.chip i.on{background:#7ee2a0}
+.chip i.bad{background:#ff8a80}
+#phones{font:26px/1 var(--inst);color:var(--raised)}
+
+#app{max-width:1240px;margin:0 auto;padding:var(--s4);display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5)}
+@media (min-width:900px){#app{grid-template-columns:minmax(0,1fr) minmax(380px,1fr);align-items:start}#side{position:sticky;top:72px}}
+@media (max-width:899px){#side{order:2}}
+#side,#main{min-width:0;display:grid;gap:var(--s4)}
+
+/* the badge */
 #badge{background:var(--void);padding:var(--s3);box-shadow:5px 5px 0 var(--pink)}
 #frame{width:100%;height:auto;display:block;background:#fff}
-#say{color:var(--raised);font:24px/1.15 var(--inst);padding:var(--s3) 0 0;min-height:52px}
+#say{color:var(--raised);font:22px/1.15 var(--inst);padding:var(--s2) 0 0;min-height:44px}
 #say.bad{color:#ff8a80}
-.lights{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);font-size:13px}
-.lights span{display:inline-flex;align-items:center;gap:var(--s2)}
-.lights i{width:10px;height:10px;border-radius:50%;background:var(--ink3);display:inline-block}
-.lights i.on{background:var(--ok)}
-.lights i.bad{background:var(--err)}
-#players{font:28px/1 var(--inst)}
-section.card2{border-top:2px solid var(--ink);padding-top:var(--s3)}
-section.card2 > h2{font-size:22px;margin-bottom:var(--s3)}
-#join{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s4);align-items:center}
-#joinQr{width:132px;height:132px;background:#fff;border:2px solid var(--ink);image-rendering:pixelated}
-#roomCode{font:56px/1 var(--inst);letter-spacing:.08em}
-#joinUrl{font-size:12px;overflow-wrap:anywhere;color:var(--ink2)}
-.row2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:end}
+#takeBack{width:100%;margin-top:var(--s2)}
+
+/* now */
+#now{border:3px solid var(--ink);background:var(--raised);box-shadow:5px 5px 0 var(--ink);padding:var(--s4);display:grid;gap:var(--s3)}
+#nowHead{display:flex;align-items:center;gap:var(--s3)}
+#nowHead svg{flex:none}
+#nowName{font:28px/1 var(--disp)}
+#nowBig{font:44px/1 var(--inst)}
+#nowSmall{font:15px/1.4 var(--type);color:var(--ink2);overflow-wrap:anywhere}
+.big2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+.big2 button{min-height:64px;font-size:16px;flex-direction:column;gap:2px}
+.big2 button small{font:600 11px var(--mono);color:var(--ink3)}
+.more{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.more .btn{flex:1 1 auto;min-height:44px;font-size:13px}
+#empty{display:grid;gap:var(--s2)}
+#empty h2{font-size:30px}
+
+/* tabs */
+#tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:2px solid var(--ink)}
+#tabs button{background:var(--raised);border:0;border-right:2px solid var(--ink);font-weight:600;font-size:14px;min-width:0;position:relative}
+#tabs button:last-child{border-right:0}
+#tabs button[aria-selected=true]{background:var(--ink);color:var(--raised)}
+#tabs b{position:absolute;top:4px;right:6px;background:var(--pink);color:var(--ink);font:600 11px var(--mono);padding:0 5px}
+.pane{display:grid;gap:var(--s3)}
+
 #games{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
-#games button{text-align:left;background:var(--raised);border:2px solid var(--ink);padding:var(--s2) var(--s3);min-height:76px;display:block}
-#games button b{display:block;font-size:15px}
+@media (min-width:560px){#games{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#games button{text-align:left;background:var(--raised);border:2px solid var(--ink);padding:var(--s3);min-height:96px;display:grid;gap:4px;align-content:start}
+#games button b{font-size:15px}
 #games button span{font-size:12px;color:var(--ink2)}
 #games button[aria-pressed=true]{background:var(--pink);color:var(--ink);box-shadow:3px 3px 0 var(--ink)}
 #games button[aria-pressed=true] span{color:var(--ink)}
-.stats{display:grid;gap:var(--s1);margin-bottom:var(--s3)}
+
+.stats{display:grid;gap:var(--s1)}
 .stats div{display:flex;justify-content:space-between;gap:var(--s3);font-size:13px;border-bottom:1px dashed var(--ink3);padding:var(--s1) 0}
 .stats b{text-align:right;overflow-wrap:anywhere}
-.controls{display:grid;gap:var(--s2)}
 .list{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
-.list li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;font-size:14px}
+.list li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;font-size:14px;min-height:40px}
 .list li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .list button{min-height:38px;padding:0 var(--s3);font-size:12px}
 .settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
 .switch{display:flex;gap:var(--s3);align-items:center;font-weight:600;font-size:14px;min-height:var(--tap);margin:0}
 .switch input{width:24px;height:24px;accent-color:var(--ink);flex:none}
+#join{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s4);align-items:center}
+#joinQr{width:132px;height:132px;background:#fff;border:2px solid var(--ink);image-rendering:pixelated}
+#roomCode{font:56px/1 var(--inst);letter-spacing:.08em}
+#joinUrl{font-size:12px;overflow-wrap:anywhere;color:var(--ink2)}
+.legend{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s1) var(--s3);font-size:13px}
+.legend b{font-family:var(--inst);font-size:20px}
+
+/* game panels */
 .hits{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s2) 0}
 .hits .btn{min-height:36px;font-size:12px}
 .deck{list-style:none;padding:0;margin:0;display:grid;gap:var(--s1)}
@@ -62,9 +93,15 @@ section.card2 > h2{font-size:22px;margin-bottom:var(--s3)}
 .queued{display:grid;gap:var(--s2)}
 .pair2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
 .pair2 .go{font-size:14px;padding:var(--s2)}
-details{border-top:2px solid var(--ink);padding-top:var(--s2)}
-summary{cursor:pointer;font-weight:600;min-height:var(--tap);display:flex;align-items:center}
-@media (max-width:860px){#app{grid-template-columns:minmax(0,1fr);padding:var(--s3)}#left{position:static}}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s2);align-items:end}
+.gifgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:var(--s2)}
+.gifpick{padding:0;border:2px solid var(--ink);background:var(--raised);display:grid;text-align:left;min-height:0}
+.gifpick img{width:100%;aspect-ratio:10/7;object-fit:cover;display:block;background:var(--sunk)}
+.gifpick span{font:600 11px var(--mono);padding:4px 6px}
+
+#toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:9;display:grid;gap:var(--s2);width:min(520px,calc(100% - 32px))}
+.toast{background:var(--ink);color:var(--raised);padding:var(--s3) var(--s4);font-weight:600;box-shadow:4px 4px 0 var(--pink);display:flex;justify-content:space-between;gap:var(--s3);align-items:center}
+.toast button{background:none;border:2px solid var(--raised);color:var(--raised);min-height:36px;font-size:12px}
 </style>
 </head>
 <body>
@@ -80,73 +117,89 @@ summary{cursor:pointer;font-weight:600;min-height:var(--tap);display:flex;align-
   <p class="prose"><a href="index.html">badge control</a> for the logo, slides and messages.</p>
 </main>
 
-<div id="app" hidden>
-  <section id="left" aria-label="the badge">
-    <div class="top">
-      <h1>crowd games</h1>
-      <nav><a id="stageLink" target="_blank" rel="noopener">projector view</a><a href="index.html">badge control</a></nav>
-    </div>
-    <div id="badge">
-      <canvas id="frame" width="960" height="672" aria-label="the last screen sent to the badge"></canvas>
-      <div id="say" role="status" aria-live="polite">starting.</div>
-      <button id="takeBack" class="btn" hidden style="margin-top:var(--s2);width:100%">host from this device instead</button>
-    </div>
-    <div class="lights" aria-label="connections">
-      <span><i id="lRelay"></i>relay</span>
-      <span><i id="lBadge"></i>badge</span>
-      <span><i id="lWake"></i>screen stays on</span>
-      <span><b id="players">0</b>&nbsp;phones</span>
-    </div>
-    <section class="card2" aria-labelledby="joinH">
-      <h2 id="joinH">people join here</h2>
-      <div id="join">
-        <canvas id="joinQr" width="132" height="132" aria-label="qr code for the join link"></canvas>
-        <div>
-          <div id="roomCode">----</div>
-          <div id="joinUrl"></div>
-          <button id="copy" class="btn" style="margin-top:var(--s2)">copy the link</button>
-        </div>
+<div id="shell" hidden>
+  <header id="bar">
+    <h1>crowd games</h1>
+    <span class="chip"><i id="lRelay"></i>relay</span>
+    <span class="chip"><i id="lBadge"></i>badge</span>
+    <span class="chip"><i id="lWake"></i>awake</span>
+    <span class="chip"><b id="phones">0</b> phones</span>
+  </header>
+
+  <div id="app">
+    <aside id="side" aria-label="the badge">
+      <div id="badge">
+        <canvas id="frame" width="960" height="672" aria-label="the last screen sent to the badge"></canvas>
+        <div id="say" role="status" aria-live="polite">starting.</div>
+        <button id="takeBack" class="btn" hidden>host from this device instead</button>
       </div>
-    </section>
-  </section>
+    </aside>
 
-  <section id="right" aria-label="host controls">
-    <section class="card2" aria-labelledby="gameH">
-      <h2 id="gameH">game</h2>
-      <div id="games" role="group" aria-label="pick a game"></div>
-      <button id="stop" class="btn" style="width:100%;margin-top:var(--s2)">stop games, show the join screen</button>
-    </section>
+    <section id="main" aria-label="host controls">
+      <section id="now" aria-live="polite">
+        <div id="empty">
+          <h2>pick a game</h2>
+          <p class="prose">open the projector view on the big screen first, so the room can scan in. then pick a game below.</p>
+          <div class="big2"><a class="btn go" id="stageGo" target="_blank" rel="noopener">open projector view</a><button class="btn" id="toGames">show the games</button></div>
+        </div>
+        <div id="live" hidden>
+          <div id="nowHead"><span id="nowIcon"></span><span id="nowName"></span></div>
+          <div id="nowBig"></div>
+          <div id="nowSmall"></div>
+          <div class="big2" id="primary"></div>
+          <div class="more" id="secondary"></div>
+          <div id="panel"></div>
+        </div>
+      </section>
 
-    <section class="card2" id="nowCard" hidden aria-labelledby="nowH">
-      <h2 id="nowH">now</h2>
-      <div class="stats" id="stats"></div>
-      <div class="controls" id="controls"></div>
-      <div id="panel"></div>
-      <h3>settings for this game</h3>
-      <div class="settings" id="settings"></div>
-    </section>
+      <div id="tabs" role="tablist" aria-label="host sections">
+        <button role="tab" id="tab-games" aria-selected="true">games</button>
+        <button role="tab" id="tab-people" aria-selected="false">players</button>
+        <button role="tab" id="tab-credits" aria-selected="false">credits<b id="creditCount" hidden></b></button>
+        <button role="tab" id="tab-setup" aria-selected="false">setup</button>
+      </div>
 
-    <section class="card2" aria-labelledby="creditH">
-      <h2 id="creditH">capsule credits</h2>
-      <label class="switch"><input type="checkbox" id="creditsOn"> games can award capsule credits</label>
-      <div class="row2" style="margin-bottom:var(--s3)"><div><label for="creditsMax">most credits to give out</label><input id="creditsMax" type="number" min="0" max="500" inputmode="numeric"></div></div>
-      <p class="prose" id="creditNote"></p>
-      <ul class="list" id="credits"></ul>
-    </section>
+      <section class="pane" id="pane-games" role="tabpanel">
+        <div id="games" role="group" aria-label="pick a game"></div>
+        <button id="stop" class="btn">stop games, show the join screen</button>
+        <details id="settingsBox" hidden>
+          <summary>settings for this game</summary>
+          <div class="settings" id="settings" style="margin-top:var(--s2)"></div>
+        </details>
+        <div class="stats" id="stats"></div>
+      </section>
 
-    <section class="card2" aria-labelledby="peopleH">
-      <h2 id="peopleH">players</h2>
-      <ul class="list" id="people"></ul>
-      <p class="small" style="margin-top:var(--s2)">remove takes a player out of every game and off the leaderboard. they are told on their phone.</p>
-    </section>
+      <section class="pane" id="pane-people" role="tabpanel" hidden>
+        <ul class="list" id="people"></ul>
+        <p class="small">remove takes a player out of every game and off the leaderboard. their phone tells them.</p>
+      </section>
 
-    <details>
-      <summary>badge output and this browser</summary>
-      <label class="switch"><input type="checkbox" id="output"> send screens to the badge</label>
-      <button id="forget" class="btn" style="width:100%;margin-top:var(--s3)">stop hosting and forget the key</button>
-    </details>
-  </section>
+      <section class="pane" id="pane-credits" role="tabpanel" hidden>
+        <label class="switch"><input type="checkbox" id="creditsOn"> games can award capsule credits</label>
+        <div class="row2"><div><label for="creditsMax">most credits to give out</label><input id="creditsMax" type="number" min="0" max="500" inputmode="numeric"></div></div>
+        <p class="prose" id="creditNote"></p>
+        <ul class="list" id="credits"></ul>
+      </section>
+
+      <section class="pane" id="pane-setup" role="tabpanel" hidden>
+        <div id="join">
+          <canvas id="joinQr" width="132" height="132" aria-label="qr code for the join link"></canvas>
+          <div>
+            <div id="roomCode">----</div>
+            <div id="joinUrl"></div>
+            <div class="pair2" style="margin-top:var(--s2)"><button id="copy" class="btn">copy the link</button><a id="stageLink" class="btn" target="_blank" rel="noopener">projector view</a></div>
+          </div>
+        </div>
+        <h3>badge buttons while a game runs</h3>
+        <div class="legend"><b>a</b><span id="legendA">the game's first control</span><b>b</b><span id="legendB">the game's second control</span></div>
+        <label class="switch"><input type="checkbox" id="output"> send screens to the badge</label>
+        <p class="small"><a href="index.html">badge control</a> for the logo, slides and messages.</p>
+        <button id="forget" class="btn">stop hosting and forget the key</button>
+      </section>
+    </section>
+  </div>
 </div>
+<div id="toasts" aria-live="polite"></div>
 
 <script type="module">
 import { HostEngine } from './lib/host-engine.js';
@@ -154,68 +207,107 @@ import * as S from './lib/screen.js';
 import { shortCode } from './lib/credit.js';
 import { GAMES, gameMeta, hostFor } from './games/registry.js';
 import { h } from './lib/phone-kit.js';
+import { icon } from './lib/icons.js';
 
 const KEY_STORE = 'hackbuild-badge.key';
+const TAB_STORE = 'hb.host.tab';
 const $ = id => document.getElementById(id);
-let engine = null, wake = null, panel = null, panelKind = '', renderedKind = null;
+let engine = null, wake = null, panel = null, panelKind = '', builtKind = null, lastSay = '', seenCredits = -1;
 
 function cleanKey(text) { const m = text.match(/hb-[0-9a-f]+/i); return m ? m[0] : text.trim().replace(/^"+|"+$/g, ''); }
+
+function toast(text, action = null, ms = 5000) {
+  const el = h('div.toast', {}, h('span', {}, text), action ? h('button', { onclick: () => { action.run(); el.remove(); } }, action.label) : null);
+  $('toasts').append(el);
+  setTimeout(() => el.remove(), ms);
+}
 
 async function begin(secret) {
   if (!window.CLASP || !window.qrcode) { $('gateMsg').textContent = 'a library did not load. check your network and reload.'; return; }
   try { localStorage.setItem(KEY_STORE, secret); } catch (e) { /* private mode */ }
+  $('connect').disabled = true;
   engine = new HostEngine(secret, render);
   window.hostEngine = engine;
   await engine.start();
   $('gate').hidden = true;
-  $('app').hidden = false;
+  $('shell').hidden = false;
   $('roomCode').textContent = engine.code;
   $('joinUrl').textContent = engine.join.url;
-  $('stageLink').href = `stage.html#${engine.code}`;
+  $('stageLink').href = $('stageGo').href = `stage.html#${engine.code}`;
   S.qr($('joinQr').getContext('2d'), engine.join.url, 0, 0, 132);
   const fc = $('frame').getContext('2d');
   fc.fillStyle = '#fff';
   fc.fillRect(0, 0, S.W, S.H);
-  buildGames();
+  $('games').replaceChildren(...GAMES.map(g => {
+    const b = h('button', { 'aria-pressed': 'false', 'data-id': g.id, onclick: () => startGame(g.id) }, h('i'), h('b', {}, g.name), h('span', {}, g.blurb));
+    b.querySelector('i').innerHTML = icon(g.id, 26);
+    return b;
+  }));
+  try { selectTab(localStorage.getItem(TAB_STORE) || 'games'); } catch (e) { selectTab('games'); }
   keepAwake();
   render();
   setInterval(render, 1000);
 }
 
-// ---- rendering from the engine ----
-
-function buildGames() {
-  $('games').replaceChildren(...GAMES.map(g => h('button', { 'aria-pressed': 'false', 'data-id': g.id, onclick: () => engine.startGame(g.id).then(render) },
-    h('b', {}, g.name), h('span', {}, g.blurb))));
+async function startGame(id) {
+  if (engine.room.kind === id) { toast(`${gameMeta(id).name} is already running.`); return; }
+  if (engine.room.kind && !confirmSwitch(id)) return;
+  await engine.startGame(id);
+  render();
+  scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// Switching games mid round loses that round, so it asks once, in the page, without a dialog.
+let armed = '';
+function confirmSwitch(id) {
+  if (armed === id) { armed = ''; return true; }
+  armed = id;
+  toast(`tap ${gameMeta(id).name} again to switch. this round of ${gameMeta(engine.room.kind).name} ends.`, null, 4000);
+  setTimeout(() => { if (armed === id) armed = ''; }, 4000);
+  return false;
+}
+
+// ---- rendering from the engine ----
 
 function render() {
   if (!engine || !engine.room) return;
   const room = engine.room, kind = room.kind;
   $('say').textContent = engine.say;
   $('say').className = engine.sayBad ? 'bad' : '';
+  if (engine.say !== lastSay && /credit|waiting|another device/.test(engine.say)) toast(engine.say);
+  lastSay = engine.say;
   $('takeBack').hidden = engine.owner;
   $('lRelay').className = engine.relay && engine.relay.up ? 'on' : 'bad';
   $('lBadge').className = engine.badge && engine.badge.online ? 'on' : 'bad';
   $('lWake').className = wake ? 'on' : '';
-  $('players').textContent = engine.players();
+  $('phones').textContent = engine.players();
   $('frame').getContext('2d').drawImage(engine.frame, 0, 0);
   document.querySelectorAll('#games button').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.id === kind)); b.disabled = !engine.owner; });
-  $('stop').disabled = !engine.owner;
-  $('nowCard').hidden = !kind;
+  $('stop').disabled = !engine.owner || !kind;
   $('output').checked = engine.output;
+  $('empty').hidden = !!kind;
+  $('live').hidden = !kind;
+  $('settingsBox').hidden = !kind;
   if (kind) renderNow(kind);
+  else { builtKind = null; $('stats').replaceChildren(); }
   renderCredits();
   renderPeople();
 }
 
 function renderNow(kind) {
-  const st = engine.hostState();
-  $('nowH').textContent = `now: ${gameMeta(kind).name}`;
+  const st = engine.hostState(), meta = gameMeta(kind);
+  const head = st.headline || { big: st.stats[0] ? String(st.stats[0][1]) : '', small: st.stats[1] ? st.stats[1].join(': ') : '' };
+  $('nowBig').textContent = head.big;
+  $('nowSmall').textContent = head.small || '';
   $('stats').replaceChildren(...st.stats.map(([k, v]) => h('div', {}, h('span', {}, k), h('b', {}, String(v)))));
-  if (renderedKind !== kind) {
-    renderedKind = kind;
-    $('controls').replaceChildren(...st.controls.map((label, i) => h('button.btn', { onclick: () => { engine.control(i); render(); } }, label)));
+  if (builtKind !== kind) {
+    builtKind = kind;
+    $('nowIcon').innerHTML = icon(kind, 32);
+    $('nowName').textContent = meta.name;
+    $('primary').replaceChildren(...st.controls.slice(0, 2).map((label, i) => h('button.btn', { onclick: () => { engine.control(i); render(); } }, label, h('small', {}, `badge button ${i ? 'b' : 'a'}`))));
+    $('secondary').replaceChildren(...st.controls.slice(2).map((label, i) => h('button.btn', { onclick: () => { engine.control(i + 2); render(); } }, label)));
+    $('legendA').textContent = st.controls[0] || 'nothing in this game';
+    $('legendB').textContent = st.controls[1] || 'nothing in this game';
     renderSettings(kind);
   }
   if (panelKind !== kind) {
@@ -246,24 +338,36 @@ function renderSettings(kind) {
 }
 
 function renderCredits() {
-  const c = engine.room.cfg.credits, list = Object.entries(engine.room.credits);
+  const c = engine.room.cfg.credits, list = Object.entries(engine.room.credits), open = list.filter(([, cr]) => !cr.given).length;
   if (document.activeElement !== $('creditsMax')) $('creditsMax').value = c.max;
   $('creditsOn').checked = c.on;
-  $('creditNote').textContent = `${list.length} of ${c.max} given. a credit is sealed to the winner's phone. on android they load it onto a blank coin; on an iphone they show you the code below and you hand them a coin.`;
+  $('creditCount').hidden = !open;
+  $('creditCount').textContent = open;
+  if (seenCredits >= 0 && list.length > seenCredits) toast('a capsule credit was won.', { label: 'see it', run: () => selectTab('credits') });
+  seenCredits = list.length;
+  $('creditNote').textContent = `${list.length} of ${c.max} given. each is sealed to the winner's phone. on android they load it onto a blank coin; on an iphone they show you the code, you hand them a coin, then tap gave a coin.`;
   $('credits').replaceChildren(...(list.length ? list.sort((a, b) => b[1].at - a[1].at).map(([pid, cr]) => h('li', {},
-    h('span', {}, `${engine.room.names[pid] || 'someone'}, ${shortCode(cr.token)}, ${cr.why}`),
-    h('b', {}, cr.given ? 'coin given' : ''),
+    h('span', {}, `${shortCode(cr.token)}, ${engine.room.names[pid] || 'someone'}, ${cr.why}`),
+    h('b', {}, cr.given ? 'given' : ''),
     h('button.btn', { onclick: () => engine.markGiven(pid) }, cr.given ? 'undo' : 'gave a coin'))) : [h('li', {}, h('span', {}, 'none yet.'))]));
 }
 
 function renderPeople() {
   const room = engine.room;
-  const top = Object.entries(room.scores).filter(([pid]) => !room.banned[pid]).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  const rows = top.map(([pid, s]) => h('li', {}, h('span', {}, room.names[pid] || 'someone'), h('b', {}, String(s)),
+  const top = Object.entries(room.scores).filter(([pid]) => !room.banned[pid]).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const rows = top.map(([pid, s], i) => h('li', {}, h('span', {}, `${i + 1}. ${room.names[pid] || 'someone'}`), h('b', {}, String(s)),
     h('button.btn', { onclick: () => engine.remove(pid), 'aria-label': `remove ${room.names[pid] || 'this player'}` }, 'remove')));
   const gone = Object.keys(room.banned).map(pid => h('li', {}, h('span', {}, `${room.names[pid] || 'someone'}, removed`), h('b', {}),
     h('button.btn', { onclick: () => engine.letBack(pid) }, 'let back in')));
   $('people').replaceChildren(...(rows.length || gone.length ? [...rows, ...gone] : [h('li', {}, h('span', {}, 'nobody has scored yet.'))]));
+}
+
+function selectTab(name) {
+  for (const t of ['games', 'people', 'credits', 'setup']) {
+    $(`tab-${t}`).setAttribute('aria-selected', String(t === name));
+    $(`pane-${t}`).hidden = t !== name;
+  }
+  try { localStorage.setItem(TAB_STORE, name); } catch (e) { /* private mode */ }
 }
 
 // ---- screen keeping ----
@@ -287,6 +391,8 @@ $('gateForm').addEventListener('submit', e => {
   if (!k) { $('gateMsg').textContent = 'paste your badge key first.'; return; }
   begin(k);
 });
+for (const t of ['games', 'people', 'credits', 'setup']) $(`tab-${t}`).addEventListener('click', () => selectTab(t));
+$('toGames').addEventListener('click', () => { selectTab('games'); $('games').scrollIntoView({ behavior: 'smooth' }); });
 $('stop').addEventListener('click', () => engine.stopGames().then(render));
 $('takeBack').addEventListener('click', () => { engine.claim(); render(); });
 $('output').addEventListener('change', e => { engine.output = e.target.checked; });

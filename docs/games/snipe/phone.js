@@ -12,7 +12,7 @@ export function mount(root, api) {
   const claims = h('ol.results');
   root.append(head, hint, form, result, h('h3.small', {}, 'this round'), claims);
 
-  let view = null, you = null;
+  let view = null, you = null, buzzedRound = -1;
 
   function claim(c) {
     if (c.length !== 4) { api.note('the code is 4 letters.', true); return; }
@@ -30,6 +30,7 @@ export function mount(root, api) {
     head.textContent = view.live ? `code live, ${seconds(api.left(view))}` : 'watch the badge';
     hint.textContent = view.live ? 'scan the qr code on the badge, or type the 4 letters.' : 'a new code appears when the badge finishes drawing.';
     const y = you && you.r === view.round ? you : null;
+    if (y && y.claimed && buzzedRound !== view.round) { buzzedRound = view.round; api.buzz(); }
     if (y && y.claimed) result.textContent = `claimed. ${ordinal(y.claimed.place)} in ${(y.claimed.ms / 1000).toFixed(1)} s, +${y.claimed.pts}.`;
     else if (result.textContent.startsWith('claimed.')) result.textContent = '';
     form.hidden = !!(y && y.claimed);

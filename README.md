@@ -11,7 +11,7 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 
 ## The games
 
-Eight games, each built for anywhere from one person to a room of a hundred or more.
+Eight games and a meme GIF mode, each built for anywhere from one person to a room of a hundred or more.
 
 | game | what you do | how the badge keeps up |
 |---|---|---|
@@ -23,10 +23,11 @@ Eight games, each built for anywhere from one person to a room of a hundred or m
 | dither booth | take an opt in selfie, dithered for e-paper. The room votes one onto the badge | one portrait at a time |
 | flash snipe | every redraw shows a new code. First claims score most | a code goes live once the badge has drawn it |
 | snake by committee | the room votes every move | one screen per turn |
+| meme gifs | the wearer taps a GIF, pastes a link or picks a file. Phones ask for the next one from a preset list | ten dithered frames loop on the badge until the next GIF |
 
 Name That Package came out of my [hackbuild-fab](https://github.com/hackbuild/hackbuild-fab) parts workflow. `tools/parts/build.py` pulls 38 footprints from the KiCad library mirror on GitHub, Espressif's KiCad library and the hbf catalog, and the pin names from KiCad's current symbols, so the pinout on a reveal is the one KiCad ships. Supercon favorites are in there: the Z80 and the 1802 in DIP-40, the CH32V003, the Blue Pill chip, the RP2040, ESP32 modules, a WS2812B, a Pi header and a USB-C receptacle. While a game runs, the host can search KiCad's library and add more footprints on the spot.
 
-The game ideas come from my PLACARD design study for this badge.
+The game ideas come from my PLACARD design study for this badge. The meme GIF presets are links to GIPHY; the GIFs load from GIPHY when played and none are stored here.
 
 ## Capsule credits
 
@@ -48,6 +49,8 @@ Open the host page on the phone you'll carry, or a laptop by the stage. Paste th
 - Open **projector view** for the room. It shows the game large and in color, the join QR and the leaderboard.
 - The room code comes from the badge key, so a QR you print keeps working all weekend.
 - The page you opened last owns the room. Any other host page stops itself and offers to take over.
+- User a and user b on the badge run the game's two main controls, like ending a phase or skipping a prompt, so you can run a game with your hands free. The host page labels which is which.
+- The LED bar drains over each phase, and flashes when live ink lands, so the room can see the badge is working.
 - Nothing a stranger types or uploads reaches the badge unfiltered. Text goes through a word filter. Photos wait in your approval queue. **remove** takes a player out of every game.
 
 ## How it holds up with a crowd
@@ -69,7 +72,9 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
 | snake | 150 | 0 | 345 ms | about 1.1 s |
 | pixel commons | 150 | 0 | 321 ms | about 0.9 s |
 
-`node --test tools/test/` plays the rules through one person alone, two people and 120 people.
+`node --test tools/test/rules.test.mjs` plays the rules through one person alone, two people and 120 people.
+
+`tools/loadtest/badge-emu.mjs` stands in for the badge on the relay. It checks signatures and nonces the way the firmware does, acks chunks in order, inflates every frame and writes what the badge would show as PNGs, so the host pages can be tested with the badge in a drawer.
 
 ## What's here
 
@@ -82,7 +87,7 @@ Measured with `tools/loadtest`, simulated phones on relay.clasp.to, one socket e
     docs/parts/         the footprints and pinouts, CC-BY-SA 4.0 from KiCad
     tools/deploy.py     copies everything to the badge and hooks it into stock main.py
     tools/parts/        builds the parts deck from KiCad
-    tools/loadtest/     simulated phones
+    tools/loadtest/     simulated phones and a stand-in badge
     tools/test/         rule tests
 
 Adding a game is a folder in `docs/games` and an entry in `docs/games/registry.js`.
@@ -126,6 +131,7 @@ Measured on one badge:
 | fast refresh, three passes | 4.3 s |
 | one quick pass, booster kept on | 1.25 s |
 | 12 frame reel, played twice | 34.6 s |
+| a 10 frame GIF over the relay | under 1 s, three 16 KB chunks in flight |
 | full color refresh | 32.6 s |
 | loading a screen file | about 110 ms |
 | 6 KB image over the relay | 1.8 s |

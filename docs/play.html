@@ -19,8 +19,11 @@ header h1{font-size:22px;line-height:1}
 #pill.bad{color:#ff8a80}
 #me{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);padding:var(--s3) var(--s4);border-bottom:2px solid var(--ink);background:var(--raised)}
 #me b{font:30px/1 var(--inst)}
-#note{padding:var(--s3) var(--s4);background:var(--ink);color:var(--raised);font-weight:600}
-#note.bad{background:var(--err)}
+#note{position:fixed;left:var(--s3);right:var(--s3);top:calc(64px + env(safe-area-inset-top));z-index:6;padding:var(--s3) var(--s4);background:var(--ink);color:var(--raised);font-weight:600;box-shadow:4px 4px 0 var(--pink);max-width:540px;margin:0 auto}
+#note.bad{background:var(--err);box-shadow:4px 4px 0 var(--ink)}
+#intro{border:3px solid var(--ink);background:var(--raised);padding:var(--s4);display:grid;gap:var(--s2);box-shadow:4px 4px 0 var(--ink)}
+#intro p{margin:0}
+footer summary{cursor:pointer;font:600 13px var(--mono);color:var(--ink3);min-height:var(--tap);display:flex;align-items:center}
 #credit{margin:var(--s4) var(--s4) 0;border:3px solid var(--ink);background:var(--raised);box-shadow:5px 5px 0 var(--ink);padding:var(--s4);display:grid;gap:var(--s3)}
 #credit h2{font-size:26px}
 #creditCode{font:56px/1 var(--inst);letter-spacing:.12em}
@@ -83,10 +86,10 @@ footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3
       <h2 class="big">waiting for a game</h2>
       <p class="prose">the host picks the game. this page changes by itself when one starts. keep it open.</p>
     </section>
+    <section id="intro" hidden><p class="kicker">how to play</p><p class="prose" id="introText"></p><button class="btn" id="introOk">got it</button></section>
     <section id="slot"></section>
     <footer>
-      <h3>leaderboard, all games</h3>
-      <ol id="top"></ol>
+      <details open id="board"><summary>leaderboard, all games</summary><ol id="top"></ol></details>
       <p class="small" style="margin-top:var(--s3)">playing as <b id="me-name"></b>. <button class="btn quiet" id="rename" style="min-height:0;padding:0">change name</button></p>
     </footer>
   </main>
@@ -164,6 +167,8 @@ const api = {
   linkCode: () => linkCode,
   clearLinkCode: () => { linkCode = ''; history.replaceState(null, '', `#${room}`); },
   live(cb) { liveSubs.add(cb); return () => liveSubs.delete(cb); },
+  // A short buzz for good news, on phones that can.
+  buzz(ms = 30) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* no vibration */ } },
   media(id, cb) { return relay.on(p.media(id), v => cb(String(v || ''))); },
 };
 
@@ -198,6 +203,7 @@ async function mountGame(kind) {
   gameKind = kind || '';
   $('waiting').hidden = !!kind;
   $('title').textContent = kind ? gameMeta(kind).name : 'crowd games';
+  showIntro(kind);
   if (!kind) { loading = ''; return; }
   try {
     const mod = await phoneFor(kind);
@@ -243,6 +249,17 @@ function renderMe() {
   $('me-name').textContent = name;
 }
 
+// A game's one line how to play, shown once per game start until the player taps got it.
+function showIntro(kind) {
+  const key = `intro.${kind}.${view ? view.epoch : ''}`;
+  let seen = false;
+  try { seen = !!sessionStorage.getItem(key); } catch (e) { /* private mode */ }
+  $('intro').hidden = !kind || seen;
+  if (!kind) return;
+  $('introText').textContent = gameMeta(kind).howto || gameMeta(kind).blurb;
+  $('introOk').onclick = () => { try { sessionStorage.setItem(key, '1'); } catch (e) { /* private mode */ } $('intro').hidden = true; };
+}
+
 // ---- capsule credits ----
 
 let creditToken = '';
@@ -252,7 +269,7 @@ async function onCredit(c) {
   if (!c.sealed || !hostKey) { showCredit('', c); return; }
   try {
     const token = seal.td.decode(await seal.open(keys, hostKey, c.sealed));
-    if (/^[0-9a-f]{24}$/.test(token)) showCredit(token, c);
+    if (/^[0-9a-f]{24}$/.test(token)) { showCredit(token, c); api.buzz([40, 60, 40]); }
   } catch (e) { showCredit('', c); }
 }
 

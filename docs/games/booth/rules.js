@@ -108,6 +108,7 @@ export default {
 
   badge: {
     mode: 'still',
+    countdown: ctx => { const r = ctx.state.reign; return { key: r ? `reign.${r.id}` : 'open', ms: r ? r.until - ctx.now : 0 }; },
     key: ctx => `${ctx.state.reign ? ctx.state.reign.id : 'open'}`,
     model: ctx => { const r = ctx.state.reign; return r ? { reign: { name: r.name, img: r.img } } : { reign: null, approved: pool(ctx.state).length }; },
   },
@@ -122,6 +123,8 @@ export default {
     for (const p of s.photos) if (p.img) drop(ctx, s, p, 'deleted');
     s.reign = null;
   },
+
+  headline(ctx) { const s = ctx.state, wait = s.photos.filter(p => p.status === 'pending').length; return { big: s.reign ? `${s.reign.name} on the badge` : 'booth open', small: wait ? `${wait} portrait${wait === 1 ? '' : 's'} waiting for you below` : `${pool(s).length} in the vote` }; },
 
   stats(ctx) {
     const s = ctx.state, left = s.reign ? Math.max(0, Math.ceil((s.reign.until - ctx.now) / 1000)) : 0;
