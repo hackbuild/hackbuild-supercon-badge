@@ -487,7 +487,7 @@ function renderPeople() {
   const list = Object.entries(room.scores).filter(([p]) => !room.banned[p]).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const ul = $('people');
   ul.innerHTML = '';
-  if (!list.length) { ul.innerHTML = '<li><span>nobody has scored yet.</span></li>'; return; }
+  if (!list.length) ul.innerHTML = '<li><span>nobody has scored yet.</span></li>';
   for (const [pid, s] of list) {
     const li = document.createElement('li');
     li.innerHTML = '<span></span><b></b>';
@@ -497,8 +497,25 @@ function renderPeople() {
     rm.className = 'btn';
     rm.textContent = 'remove';
     rm.setAttribute('aria-label', `remove ${room.names[pid] || 'this player'}`);
-    rm.addEventListener('click', () => { room.banned[pid] = 1; saveDirty = boardDirty = dirty = true; renderPeople(); });
+    rm.addEventListener('click', () => { room.banned[pid] = 1; setYou(pid, { removed: true }); saveDirty = boardDirty = dirty = true; renderPeople(); });
     li.append(rm);
+    ul.append(li);
+  }
+  const gone = Object.keys(room.banned);
+  if (!gone.length) return;
+  const head = document.createElement('li');
+  head.innerHTML = '<span><b>removed</b></span>';
+  ul.append(head);
+  for (const pid of gone) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><b></b>';
+    li.firstChild.textContent = room.names[pid] || 'someone';
+    const back = document.createElement('button');
+    back.className = 'btn';
+    back.textContent = 'let back in';
+    back.setAttribute('aria-label', `let ${room.names[pid] || 'this player'} back in`);
+    back.addEventListener('click', () => { delete room.banned[pid]; lastYou.delete(pid); if (room.g) setYou(pid, youFor(pid, Date.now()), youKey(pid)); saveDirty = boardDirty = dirty = true; renderPeople(); });
+    li.append(back);
     ul.append(li);
   }
 }

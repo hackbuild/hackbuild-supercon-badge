@@ -207,7 +207,7 @@ if (!pid) { pid = code(10); store.set('pid', pid); }
 let name = store.get('name') || '';
 let roomCode = '', pendingCode = '', P = '';
 let relay = null, view = null, viewAt = 0, you = null, board = null, hostAt = 0, startedAt = 0, seq = 0;
-let lastPhase = '';
+let lastPhase = '', removed = false;
 
 function parseHash() {
   const h = decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^A-Z0-9.]/g, '');
@@ -270,6 +270,8 @@ function onView(value) {
 
 function onYou(value) {
   try { you = JSON.parse(value); } catch (e) { return; }
+  if (you.removed) { removed = true; note('the host removed you from the games, so your moves do not count. ask the person wearing the badge.', true); return; }
+  if (removed) { removed = false; note(''); }
   if (view && you.e !== view.epoch) return;
   if (you.hill && you.hill.note) note(you.hill.note, true);
   if (you.snipe && you.snipe.note) note(you.snipe.note, true);

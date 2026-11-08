@@ -110,7 +110,9 @@ export function top(room, n) {
 
 // Applies one phone's input. Returns { you } with what that phone should be told, or null.
 export function input(room, pid, msg, now) {
-  if (!room.g || room.banned[pid] || msg.e !== room.epoch) return null;
+  // A removed player hears so once per input, so the phone can say why nothing it sends counts.
+  if (room.banned[pid]) return { you: { removed: true } };
+  if (!room.g || msg.e !== room.epoch) return null;
   if (!(msg.s > (room.seq[pid] || 0))) return null;
   room.seq[pid] = msg.s;
   const fn = INPUT[room.kind] && INPUT[room.kind][msg.t];
@@ -293,7 +295,6 @@ function hillEndVote(room, g) {
 export function hillVeto(room, now) {
   const g = room.g;
   if (!g || room.kind !== 'hill') return;
-  if (g.champ.pid) room.banned[g.champ.pid] = 1;
   const p = HILL_PROMPTS[(g.prompt - 1) % HILL_PROMPTS.length];
   g.champ = g.prev && !room.banned[g.prev.pid] ? g.prev : { text: p.seed, q: p.q, name: 'hack.build', pid: '', held: 0 };
   g.prev = null;
