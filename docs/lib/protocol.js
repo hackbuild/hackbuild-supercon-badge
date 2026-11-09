@@ -17,6 +17,9 @@
 
 export const PROTOCOL = 2;
 export const PUBLIC_BASE = 'https://supercon.hack.build/';
+// The wearer's room. Its code comes from the badge key and is printed on the badge's join screen,
+// so it is public; a link without a room lands here.
+export const HOME_ROOM = '695S';
 
 // Links a phone can follow from anywhere. A local copy of the site links to itself instead.
 export function shareBase() {

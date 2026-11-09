@@ -106,7 +106,7 @@ footer{border-top:2px solid var(--ink);margin-top:var(--s5);padding-top:var(--s3
 
 <script type="module">
 import { Relay } from './lib/relay.js';
-import { PROTOCOL, paths, code } from './lib/protocol.js';
+import { PROTOCOL, paths, code, HOME_ROOM } from './lib/protocol.js';
 import * as seal from './lib/seal.js';
 import * as credit from './lib/credit.js';
 import { gameMeta, phoneFor } from './games/registry.js';
@@ -128,7 +128,7 @@ const liveSubs = new Set();
 function parseHash() {
   const h = decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^A-Z0-9.]/g, '');
   const [r, c] = h.split('.');
-  room = /^[A-Z0-9]{4}$/.test(r || '') ? r : '';
+  room = /^[A-Z0-9]{4}$/.test(r || '') ? r : HOME_ROOM;
   linkCode = /^[A-Z0-9]{4}$/.test(c || '') ? c : linkCode;
 }
 

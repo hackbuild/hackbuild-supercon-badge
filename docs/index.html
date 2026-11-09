@@ -119,13 +119,17 @@ input[type=range]{border:0;padding:0;background:none;accent-color:var(--ink)}
   #say{font-size:22px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+.playbtn{display:flex;align-items:center;justify-content:center;min-height:96px;margin-bottom:var(--s3);background:var(--pink);color:var(--ink);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink);font:48px var(--disp);text-decoration:none}
+.playbtn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
 </style>
 </head>
 <body>
 
 <main id="gate">
+  <a class="playbtn" href="play.html#695S">play</a>
+  <p class="prose" style="margin-bottom:var(--s6)">your phone is the controller for the games on the badge. no app, no sign up.</p>
   <h1>connect your badge</h1>
-  <p class="prose">paste the badge key. it stays in this browser or app and is never sent anywhere.</p>
+  <p class="prose">for the wearer: paste the badge key. it stays in this browser or app and is never sent anywhere.</p>
   <form id="gateForm">
     <div class="keybox">
       <div>
