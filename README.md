@@ -10,6 +10,12 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 - [Preview the screens](https://supercon.hack.build/viewer.html) without a badge.
 - [How it works](https://supercon.hack.build/how.html), on one page with a diagram.
 
+## What it runs on
+
+The badge keeps Hackaday's stock MicroPython firmware. Four apps join the stock menu next to Workshops, Talks, Gallery and Nametag: hack.build, Capsule, Sent and Play. They use the stock panel driver, buttons, LED bar and app framework, and the deploy tool adds them to your own `main.py`. Hackaday's factory image puts the badge back.
+
+It does not run [badge os](https://github.com/yigitabi5444/supercon26-badge-os), the separate ESP-IDF firmware by yigitabi5444 that replaces the stock one. The change-only frame here follows badge os's calm frame, rewritten in MicroPython from its description with none of its code.
+
 ## The games
 
 Nine games and a meme GIF mode, each built for anywhere from one person to a room of a hundred or more.

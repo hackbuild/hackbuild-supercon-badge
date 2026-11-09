@@ -39,6 +39,10 @@ body{min-height:100dvh}
 .modes{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px var(--s2);font-size:12px;margin:0}
 .modes dt{font-weight:600}
 .modes dd{margin:0;color:var(--ink2)}
+.runs .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s4)}
+.runs h3{margin:0 0 var(--s1);color:var(--ink)}
+.runs p{font-size:13px;line-height:1.45;margin:0}
+@media (max-width:900px){.runs .cols{grid-template-columns:1fr}}
 .foot{font-size:12px;color:var(--ink3);display:flex;gap:var(--s4);flex-wrap:wrap;justify-content:space-between}
 @media (max-width:1100px){.panels{grid-template-columns:repeat(2,minmax(0,1fr))}.map svg{max-height:none}}
 @media (max-width:640px){.panels{grid-template-columns:1fr}.top h1{font-size:28px}}
@@ -204,6 +208,24 @@ body{min-height:100dvh}
       <li>the game room is public by design. text goes through a word filter and photos wait for approval.</li>
     </ul>
   </article>
+</section>
+
+<section class="panel runs" aria-labelledby="runsHead">
+  <h2 id="runsHead">what it runs on</h2>
+  <div class="cols">
+    <div>
+      <h3>hackaday's stock firmware</h3>
+      <p>the badge keeps the micropython firmware it ships with. four apps join the stock menu next to workshops, talks, gallery and nametag: hack.build, capsule, sent and play. they use the stock panel driver, buttons, led bar and app framework. the deploy tool adds them to your own <code>main.py</code>, and hackaday's factory image puts the badge back.</p>
+    </div>
+    <div>
+      <h3>what this adds</h3>
+      <p>a relay client, signed remote control, a fast and a change-only refresh, live ink, frame streaming and the play app. all of it is micropython in <code>badge/lib</code> and <code>badge/apps</code>.</p>
+    </div>
+    <div>
+      <h3>what it learned from others</h3>
+      <p>the change-only frame, 0.36 s instead of 1.25 s, follows the calm frame in <a href="https://github.com/yigitabi5444/supercon26-badge-os">badge os</a> by yigitabi5444, a separate firmware in native esp-idf c that replaces the stock one. this badge does not run badge os. the idea was rewritten here in micropython from its description, and none of its code is copied. the short waveform table comes from hackaday's <code>data/rendered_luts.py</code>.</p>
+    </div>
+  </div>
 </section>
 
 <footer class="foot">
