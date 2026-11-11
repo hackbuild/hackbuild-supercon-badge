@@ -10,6 +10,8 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 - [Preview the screens](https://supercon.hack.build/viewer.html) without a badge.
 - [How it works](https://supercon.hack.build/how.html), on one page with a diagram.
 
+It's listed with the other community apps in the [official badge repo](https://github.com/Hack-a-Day/2026-Billboard_Badge/pull/46). `HANDOFF.md` has where everything stands.
+
 ## What it runs on
 
 The badge keeps Hackaday's stock MicroPython firmware. Four apps join the stock menu next to Workshops, Talks, Gallery and Nametag: hack.build, Capsule, Sent and Play. They use the stock panel driver, buttons, LED bar and app framework, and the deploy tool adds them to your own `main.py`. Hackaday's factory image puts the badge back.
