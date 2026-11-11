@@ -96,6 +96,6 @@ Not checked yet:
 ## upstream
 
 The official repo takes apps under `user_apps/` and infrastructure in separate PRs. This project is
-listed there as `user_apps/hackbuild_crowd_games/`, a README that links here. The change-only frame
+submitted there as `user_apps/hackbuild_crowd_games/`, a README that links here: PR 46, open. The change-only frame
 follows badge os's calm frame (github.com/yigitabi5444/supercon26-badge-os, GPL-2.0), rewritten from
 its description; none of its code is here.

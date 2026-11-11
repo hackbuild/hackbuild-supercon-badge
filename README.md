@@ -10,7 +10,7 @@ The badge shows my hack.build logo and a slide show of my capsule machine. Then 
 - [Preview the screens](https://supercon.hack.build/viewer.html) without a badge.
 - [How it works](https://supercon.hack.build/how.html), on one page with a diagram.
 
-It's listed with the other community apps in the [official badge repo](https://github.com/Hack-a-Day/2026-Billboard_Badge/pull/46). `HANDOFF.md` has where everything stands.
+It's submitted to the official badge repo's user apps in [PR 46](https://github.com/Hack-a-Day/2026-Billboard_Badge/pull/46). `HANDOFF.md` has where everything stands.
 
 ## What it runs on
 
