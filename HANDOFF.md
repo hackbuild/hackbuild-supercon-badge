@@ -96,6 +96,7 @@ Not checked yet:
 ## upstream
 
 The official repo takes apps under `user_apps/` and infrastructure in separate PRs. This project is
-submitted there as `user_apps/hackbuild_crowd_games/`, a README that links here: PR 46, open. The change-only frame
+submitted there as `user_apps/hackbuild_crowd_games/`, a README that links here: PR 46, open. PR 47, open, adds an optional 10 frame pull
+to the official `lib/epd_partial.py`, default unchanged; it was not run inside that library on hardware. The change-only frame
 follows badge os's calm frame (github.com/yigitabi5444/supercon26-badge-os, GPL-2.0), rewritten from
 its description; none of its code is here.
